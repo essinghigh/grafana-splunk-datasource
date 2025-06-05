@@ -1,3 +1,5 @@
+## [1.0.1](https://github.com/essinghigh/grafana-splunk-datasource/compare/v1.0.0...v1.0.1) (2025-06-05)
+
 # 1.0.0 (2025-06-05)
 
 # [0.4.0](https://github.com/essinghigh/grafana-plugin-splunk-datasource/compare/v0.3.3...v0.4.0) (2025-01-14)

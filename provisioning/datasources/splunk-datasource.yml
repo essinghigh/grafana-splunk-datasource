@@ -1,0 +1,15 @@
+apiVersion: 1
+
+datasources:
+  - name: Splunk Datasource
+    type: efcasado-splunk-datasource
+    orgId: 1
+    isDefault: true
+    access: proxy
+    url: https://splunk:8089
+    basicAuth: true
+    basicAuthUser: admin
+    jsonData:
+      tlsSkipVerify: true
+    secureJsonData:
+      basicAuthPassword: thisisasecret

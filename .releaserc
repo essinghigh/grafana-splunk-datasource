@@ -1,9 +1,14 @@
 {
     "branch": "main",
     "branches": [ "main" ],
+    "tagFormat": "${commit}",
     "plugins": [
         "./scripts/always-release.js",
-        "@semantic-release/release-notes-generator",
+        ["@semantic-release/release-notes-generator", {
+            "writerOpts": {
+                "headerPartial": "Release ${commit}"
+            }
+        }],
         ["@semantic-release/changelog",
          {
              "changelogFile": "CHANGELOG.md"
@@ -19,7 +24,9 @@
         ],
         ["@semantic-release/github",
          {
-             "assets": ["essinghigh-splunk-datasource-*.tar.gz"]
+             "assets": ["essinghigh-splunk-datasource-*.tar.gz"],
+             "tagName": "${commit}",
+             "releaseName": "${commit}"
          }
         ]
     ]

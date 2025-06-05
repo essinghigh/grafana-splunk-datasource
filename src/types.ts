@@ -1,5 +1,11 @@
 import { DataQuery, DataSourceJsonData } from '@grafana/data';
 
+export enum QueryMode {
+  Standard = 'Standard',
+  Base = 'Base',
+  Chain = 'Chain',
+}
+
 export interface QueryRequestResults {
   fields: any[];
   results: any[];
@@ -11,11 +17,15 @@ export const defaultQueryRequestResults: QueryRequestResults = {
 };
 
 export interface SplunkQuery extends DataQuery {
-  queryText: string;
+  queryText?: string;
+  queryMode?: QueryMode;
+  baseSearchRefId?: string;
+  chainCommands?: string;
 }
 
 export const defaultQuery: Partial<SplunkQuery> = {
   queryText: '',
+  queryMode: QueryMode.Standard,
 };
 
 /**

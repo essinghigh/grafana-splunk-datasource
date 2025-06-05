@@ -1,21 +1,17 @@
 {
     "branch": "main",
     "branches": [ "main" ],
-    "tagFormat": "${commit}",
+    "tagFormat": "${nextRelease.gitHead}",
     "plugins": [
         "./scripts/always-release.js",
-        ["@semantic-release/release-notes-generator", {
-            "writerOpts": {
-                "headerPartial": "Release ${commit}"
-            }
-        }],
+        "@semantic-release/release-notes-generator",
         ["@semantic-release/changelog",
          {
              "changelogFile": "CHANGELOG.md"
          }
         ],
         ["@semantic-release/exec", {
-            "prepareCmd": "mv dist essinghigh-splunk-datasource; tar -czvf essinghigh-splunk-datasource-${nextRelease.version}.tar.gz essinghigh-splunk-datasource"
+            "prepareCmd": "mv dist essinghigh-splunk-datasource; export GIT_HASH=$(git rev-parse --short HEAD); tar -czvf essinghigh-splunk-datasource-$GIT_HASH.tar.gz essinghigh-splunk-datasource"
         }],
         ["@semantic-release/git",
          {
@@ -25,8 +21,8 @@
         ["@semantic-release/github",
          {
              "assets": ["essinghigh-splunk-datasource-*.tar.gz"],
-             "tagName": "${commit}",
-             "releaseName": "${commit}"
+             "tagName": "${nextRelease.gitHead}",
+             "releaseName": "${nextRelease.gitHead}"
          }
         ]
     ]

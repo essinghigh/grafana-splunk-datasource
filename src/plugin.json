@@ -2,13 +2,14 @@
   "$schema": "https://raw.githubusercontent.com/grafana/grafana/master/docs/sources/developers/plugins/plugin.schema.json",
   "type": "datasource",
   "name": "splunk-datasource",
-  "id": "efcasado-splunk-datasource",
+  "id": "essinghigh-splunk-datasource",
   "metrics": true,
   "info": {
     "description": "",
     "author": {
-      "name": "efcasado",
-      "url": ""
+      "name": "Henry Essinghigh",
+      "url": "",
+      "email": "henry@essinghigh.dev"
     },
     "keywords": [],
     "logos": {
@@ -18,11 +19,11 @@
     "links": [
       {
         "name": "Website",
-        "url": "https://github.com/efcasado/grafana-plugin-splunk-datasource"
+        "url": "https://github.com/essinghigh/grafana-plugin-splunk-datasource"
       },
       {
         "name": "License",
-        "url": "https://github.com/efcasado/grafana-plugin-splunk-datasource/blob/main/LICENSE"
+        "url": "https://github.com/essinghigh/grafana-plugin-splunk-datasource/blob/main/LICENSE"
       }
     ],
     "screenshots": [],

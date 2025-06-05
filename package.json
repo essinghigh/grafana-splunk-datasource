@@ -1,5 +1,5 @@
 {
-  "name": "efcasado-splunk-datasource",
+  "name": "essinghigh-splunk-datasource",
   "version": "0.1.1",
   "description": "",
   "scripts": {
@@ -14,7 +14,7 @@
     "test:ci": "jest --passWithNoTests --maxWorkers 4",
     "typecheck": "tsc --noEmit"
   },
-  "author": "efcasado",
+  "author": "essinghigh (henry@essinghigh.dev)",
   "license": "Apache-2.0",
   "devDependencies": {
     "@grafana/eslint-config": "^8.0.0",

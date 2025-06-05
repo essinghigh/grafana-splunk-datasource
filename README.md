@@ -1,6 +1,6 @@
 # Splunk Data Source Plugin for Grafana
 
-![Splunk Data Source for Grafana](https://github.com/efcasado/grafana-plugin-splunk-datasource/actions/workflows/ci.yml/badge.svg?branch=main)
+![Splunk Data Source for Grafana](https://github.com/essinghigh/grafana-plugin-splunk-datasource/actions/workflows/ci.yml/badge.svg?branch=main)
 
 > **DISCLAIMER!**
 > This plugin is a proof-of-concept and breaking changes are very likely to be introduced.
@@ -22,23 +22,23 @@ it is a Grafana plugin that allows you to query Splunk directly from Grafana.
 1. Download the latest version of the plugin
 
     ```bash
-    wget https://github.com/efcasado/grafana-plugin-splunk-datasource/releases/download/vX.Y.Z/efcasado-splunk-datasource-X.Y.Z.tar.gz
+    wget https://github.com/essinghigh/grafana-plugin-splunk-datasource/releases/download/vX.Y.Z/essinghigh-splunk-datasource-X.Y.Z.tar.gz
     ```
 
 2. Unzip it in your Grafana's installation plugin directory (eg. `/var/lib/grafana/plugins`)
 
     ```bash
-    tar -zxf efcasado-splunk-datasource-X.Y.Z.tar.gz -C YOUR_PLUGIN_DIR
+    tar -zxf essinghigh-splunk-datasource-X.Y.Z.tar.gz -C YOUR_PLUGIN_DIR
     ```
 3. As of Grafana v8+ you must explicitly define any unsigned plugins that you wish to allow / load (eg edit:  `/etc/grafana/grafana.ini`
 
-    ```allow_loading_unsigned_plugins = efcasado-splunk-datasource ```
+    ```allow_loading_unsigned_plugins = essinghigh-splunk-datasource ```
  
 ### Configuration
 
 The preferred way to configure Splunk Data Source Plugin for Grafana is using
 a [provisioning file](https://grafana.com/docs/grafana/latest/administration/provisioning/).
-You can use the provisioning script [included in this repository](https://github.com/efcasado/grafana-plugin-splunk-datasource/blob/main/provisioning/datasources/splunk-datasource.yml)
+You can use the provisioning script [included in this repository](https://github.com/essinghigh/grafana-plugin-splunk-datasource/blob/main/provisioning/datasources/splunk-datasource.yml)
 as source of inspiration. However, the plugin can also be manually configured
 by an administrator from Grafana's UI `Configuration --> Datasources --> Add data source`. 
 
@@ -78,7 +78,7 @@ NB: By default Splunk's REST API is only available via HTTPS (even if you allow 
 
 > The MIT License (MIT)
 >
-> Copyright (c) 2022, Enrique Fernandez
+> Copyright (c) 2022, Henry Essinghigh
 >
 > Permission is hereby granted, free of charge, to any person obtaining a copy
 > of this software and associated documentation files (the "Software"), to deal

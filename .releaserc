@@ -1,7 +1,6 @@
 {
     "branch": "main",
     "branches": [ "main" ],
-    "tagFormat": "${nextRelease.gitHead}",
     "plugins": [
         "./scripts/always-release.js",
         "@semantic-release/release-notes-generator",
@@ -11,7 +10,7 @@
          }
         ],
         ["@semantic-release/exec", {
-            "prepareCmd": "mv dist essinghigh-splunk-datasource; export GIT_HASH=$(git rev-parse --short HEAD); tar -czvf essinghigh-splunk-datasource-$GIT_HASH.tar.gz essinghigh-splunk-datasource"
+            "prepareCmd": "mv dist essinghigh-splunk-datasource; GIT_HASH=$(git rev-parse --short HEAD); tar -czvf essinghigh-splunk-datasource-$GIT_HASH.tar.gz essinghigh-splunk-datasource"
         }],
         ["@semantic-release/git",
          {
@@ -20,9 +19,7 @@
         ],
         ["@semantic-release/github",
          {
-             "assets": ["essinghigh-splunk-datasource-*.tar.gz"],
-             "tagName": "${nextRelease.gitHead}",
-             "releaseName": "${nextRelease.gitHead}"
+             "assets": ["essinghigh-splunk-datasource-*.tar.gz"]
          }
         ]
     ]

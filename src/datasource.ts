@@ -11,11 +11,12 @@ import {
 
 import { SplunkQuery, SplunkDataSourceOptions, defaultQueryRequestResults, QueryRequestResults, BaseSearchResult } from './types';
 
+const baseSearchCache: Map<string, BaseSearchResult> = new Map();
+const baseSearchInflight: Map<string, Promise<BaseSearchResult>> = new Map();
+const CACHE_TTL = 5 * 60 * 1000; // 5 minutes cache TTL
+
 export class DataSource extends DataSourceApi<SplunkQuery, SplunkDataSourceOptions> {
   url?: string;
-  private baseSearchCache: Map<string, BaseSearchResult> = new Map();
-  private baseSearchInflight: Map<string, Promise<BaseSearchResult>> = new Map();
-  private readonly CACHE_TTL = 5 * 60 * 1000; // 5 minutes cache TTL
 
   constructor(instanceSettings: DataSourceInstanceSettings<SplunkDataSourceOptions>) {
     super(instanceSettings);
@@ -37,68 +38,136 @@ export class DataSource extends DataSourceApi<SplunkQuery, SplunkDataSourceOptio
   }
 
   async query(options: DataQueryRequest<SplunkQuery>): Promise<DataQueryResponse> {
-    // First, process all base searches
     const baseSearches = options.targets.filter(query => query.searchType === 'base' || !query.searchType);
     const chainSearches = options.targets.filter(query => query.searchType === 'chain');
-    
-    // Execute base searches first and wait for them to complete, tracking in-flight promises
+
+    const baseSearchPromises: Promise<BaseSearchResult>[] = [];
     const baseResults: any[] = [];
+
     for (const query of baseSearches) {
-      // Kick off base search and cache result when done
-      const inflight = (async (): Promise<BaseSearchResult> => {
-        const result = await this.doRequest(query, options);
-        const baseResult: BaseSearchResult = {
-          sid: result.sid || '',
-          searchId: query.searchId || query.refId,
-          refId: query.refId,
-          fields: result.fields,
-          results: result.results,
-          timestamp: Date.now(),
-        };
-        // Cache under both refId and searchId if present
-        this.baseSearchCache.set(query.refId, baseResult);
-        if (query.searchId) {
-          this.baseSearchCache.set(query.searchId, baseResult);
+      const primaryKey = query.refId; // Assuming refId is the primary key
+      const searchIdKey = query.searchId;
+
+      // 1. Check cache first
+      let cachedResult = this.findBaseSearchResult(primaryKey);
+      if (searchIdKey && !cachedResult) {
+        cachedResult = this.findBaseSearchResult(searchIdKey);
+      }
+
+      if (cachedResult) {
+        baseSearchPromises.push(Promise.resolve(cachedResult));
+      } else {
+        // 2. Check for existing in-flight promise
+        let inflightPromise = baseSearchInflight.get(primaryKey);
+        if (searchIdKey && !inflightPromise) {
+          inflightPromise = baseSearchInflight.get(searchIdKey);
         }
-        return baseResult;
-      })();
-      // Register in-flight under both keys
-      this.baseSearchInflight.set(query.refId, inflight);
-      if (query.searchId) {
-        this.baseSearchInflight.set(query.searchId, inflight);
+
+        if (inflightPromise) {
+          baseSearchPromises.push(inflightPromise);
+        } else {
+          // 3. No cached result, no in-flight promise: Execute new search
+          const executeAndCacheBaseSearch = async (): Promise<BaseSearchResult> => {
+            const result = await this.doRequest(query, options);
+            const baseResult: BaseSearchResult = {
+              sid: result.sid || '',
+              searchId: query.searchId || query.refId, // Ensure searchId is populated
+              refId: query.refId,
+              fields: result.fields,
+              results: result.results,
+              timestamp: Date.now(),
+            };
+            baseSearchCache.set(query.refId, baseResult);
+            if (query.searchId) {
+              baseSearchCache.set(query.searchId, baseResult);
+            }
+            return baseResult;
+          };
+
+          let newPromise = executeAndCacheBaseSearch();
+
+          // Wrap promise with finally for cleanup
+          newPromise = newPromise.finally(() => {
+            baseSearchInflight.delete(primaryKey);
+            if (searchIdKey) {
+              baseSearchInflight.delete(searchIdKey);
+            }
+          });
+
+          baseSearchInflight.set(primaryKey, newPromise);
+          if (searchIdKey) {
+            baseSearchInflight.set(searchIdKey, newPromise);
+          }
+          baseSearchPromises.push(newPromise);
+        }
       }
-      // Wait for completion and clean up
-      const completed = await inflight;
-      this.baseSearchInflight.delete(query.refId);
-      if (query.searchId) {
-        this.baseSearchInflight.delete(query.searchId);
+    }
+
+    const completedBaseSearchResults = await Promise.all(baseSearchPromises);
+
+    for (const completedResult of completedBaseSearchResults) {
+      // Find the original query corresponding to the result.
+      // This is important because query options (like refId) are needed for createDataFrame.
+      const originalQuery = baseSearches.find(q => q.refId === completedResult.refId || (completedResult.searchId && q.searchId === completedResult.searchId));
+      if (originalQuery) {
+        const dataFrame = this.createDataFrame(originalQuery, { fields: completedResult.fields, results: completedResult.results, sid: completedResult.sid });
+        baseResults.push(dataFrame);
+      } else {
+        // This case should ideally not happen if logic is correct
+        console.error("Could not find original query for completed base search result", completedResult);
       }
-      // Build frame from completed result
-      const dataFrame = this.createDataFrame(query, { fields: completed.fields, results: completed.results, sid: completed.sid });
-      baseResults.push(dataFrame);
     }
     
-    console.log('Cache after base searches:', Array.from(this.baseSearchCache.keys()));
+    console.log('Cache after base searches:', Array.from(baseSearchCache.keys()));
     
     // Now execute chain searches
     const chainResults: any[] = [];
     for (const query of chainSearches) {
       if (query.baseSearchRefId) {
-        // Find or await the base search result
-        let baseSearch = this.findBaseSearchResult(query.baseSearchRefId, options.targets);
-        if (!baseSearch && this.baseSearchInflight.has(query.baseSearchRefId)) {
-          // Wait for in-flight base search to complete
-          baseSearch = await this.baseSearchInflight.get(query.baseSearchRefId)!;
+        let baseSearch = this.findBaseSearchResult(query.baseSearchRefId);
+
+        if (!baseSearch || !this.isCacheValid(baseSearch)) {
+          // Cache miss or invalid, try to get from in-flight
+          let inflightPromise = baseSearchInflight.get(query.baseSearchRefId);
+
+          // If baseSearchRefId might be a searchId, we need to find the corresponding refId
+          // that would have been used to key the inflightPromise.
+          if (!inflightPromise) {
+            const baseQueryTarget = options.targets.find(t => (t.searchType === 'base' || !t.searchType) && t.searchId === query.baseSearchRefId);
+            if (baseQueryTarget) {
+              inflightPromise = baseSearchInflight.get(baseQueryTarget.refId);
+            }
+          }
+
+          if (inflightPromise) {
+            try {
+              baseSearch = await inflightPromise;
+              // Re-check validity, though if the promise just resolved, it should be fresh.
+              // The main caching happens when the base promise resolves.
+              if (!this.isCacheValid(baseSearch)) {
+                baseSearch = null; // Treat as invalid if it somehow resolved to old data
+              }
+            } catch (error) {
+              console.error('Error awaiting in-flight base search for chain query:', error);
+              baseSearch = null; // Ensure baseSearch is null if await fails
+            }
+          } else {
+            // No in-flight promise found, ensure baseSearch is null
+            baseSearch = null;
+          }
         }
+
         if (baseSearch) {
           const chainResult = await this.doChainRequest(query, options, baseSearch);
           chainResults.push(this.createDataFrame(query, chainResult));
         } else {
+          // Fallback: Execute as a regular search if no valid baseSearch could be obtained
+          console.warn(`Base search result for ${query.baseSearchRefId} not found or invalid, executing chain search as regular search.`);
           const result = await this.doRequest(query, options);
           chainResults.push(this.createDataFrame(query, result));
         }
       } else {
-        // No base search reference, execute as regular search
+        // No baseSearchRefId, execute as regular search
         const result = await this.doRequest(query, options);
         chainResults.push(this.createDataFrame(query, result));
       }
@@ -136,35 +205,16 @@ export class DataSource extends DataSourceApi<SplunkQuery, SplunkDataSourceOptio
     return frame;
   }
   
-  private findBaseSearchResult(baseSearchRefId: string, targets: SplunkQuery[]): BaseSearchResult | null {
-    // First check if baseSearchRefId is a searchId (like "base-1")
-    const cachedBySearchId = this.baseSearchCache.get(baseSearchRefId);
-    if (cachedBySearchId && this.isCacheValid(cachedBySearchId)) {
-      return cachedBySearchId;
+  private findBaseSearchResult(baseSearchRefId: string): BaseSearchResult | null {
+    const cachedResult = baseSearchCache.get(baseSearchRefId);
+    if (cachedResult && this.isCacheValid(cachedResult)) {
+      return cachedResult;
     }
-    
-    // Then check if it's a RefId (like "A")
-    for (const [, cached] of this.baseSearchCache.entries()) {
-      if (cached.refId === baseSearchRefId && this.isCacheValid(cached)) {
-        return cached;
-      }
-    }
-    
-    // If not in cache, find by RefId or searchId in current targets
-    const baseQuery = targets.find(q => 
-      (q.refId === baseSearchRefId || q.searchId === baseSearchRefId) && 
-      (q.searchType === 'base' || !q.searchType)
-    );
-    
-    if (baseQuery && baseQuery.searchId) {
-      return this.baseSearchCache.get(baseQuery.searchId) || null;
-    }
-    
     return null;
   }
   
   private isCacheValid(cached: BaseSearchResult): boolean {
-    return (Date.now() - cached.timestamp) < this.CACHE_TTL;
+    return (Date.now() - cached.timestamp) < CACHE_TTL;
   }
 
   async testDatasource() {

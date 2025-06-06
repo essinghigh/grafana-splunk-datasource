@@ -3,6 +3,16 @@ import { DataQuery, DataSourceJsonData } from '@grafana/data';
 export interface QueryRequestResults {
   fields: any[];
   results: any[];
+  sid?: string; // Optional SID for chain searches
+}
+
+export interface BaseSearchResult {
+  sid: string;
+  searchId: string;
+  refId: string;
+  fields: any[];
+  results: any[];
+  timestamp: number;
 }
 
 export const defaultQueryRequestResults: QueryRequestResults = {
@@ -12,10 +22,15 @@ export const defaultQueryRequestResults: QueryRequestResults = {
 
 export interface SplunkQuery extends DataQuery {
   queryText: string;
+  searchType?: 'base' | 'chain';
+  mode?: 'base' | 'chain'; // For backward compatibility
+  baseSearchRefId?: string;
+  searchId?: string; // For base searches, this will be used to identify them
 }
 
 export const defaultQuery: Partial<SplunkQuery> = {
   queryText: '',
+  searchType: 'base',
 };
 
 /**

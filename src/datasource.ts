@@ -15,6 +15,8 @@ const baseSearchCache: Map<string, BaseSearchResult> = new Map();
 const baseSearchInflight: Map<string, Promise<BaseSearchResult>> = new Map();
 const CACHE_TTL = 5 * 60 * 1000; // 5 minutes cache TTL
 
+const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+
 export class DataSource extends DataSourceApi<SplunkQuery, SplunkDataSourceOptions> {
   url?: string;
 
@@ -127,34 +129,51 @@ export class DataSource extends DataSourceApi<SplunkQuery, SplunkDataSourceOptio
         let baseSearch = this.findBaseSearchResult(query.baseSearchRefId);
 
         if (!baseSearch || !this.isCacheValid(baseSearch)) {
-          // Cache miss or invalid, try to get from in-flight
-          let inflightPromise = baseSearchInflight.get(query.baseSearchRefId);
+          let awaitedBaseSearch: BaseSearchResult | null = null;
+          let inflightPromise: Promise<BaseSearchResult> | undefined = undefined;
+          const maxRetries = 3;
+          const retryDelayMs = 100;
 
-          // If baseSearchRefId might be a searchId, we need to find the corresponding refId
-          // that would have been used to key the inflightPromise.
-          if (!inflightPromise) {
-            const baseQueryTarget = options.targets.find(t => (t.searchType === 'base' || !t.searchType) && t.searchId === query.baseSearchRefId);
-            if (baseQueryTarget) {
-              inflightPromise = baseSearchInflight.get(baseQueryTarget.refId);
-            }
-          }
+          for (let attempt = 0; attempt < maxRetries; attempt++) {
+            // Attempt to find the promise in baseSearchInflight
+            // Check by query.baseSearchRefId (could be refId or searchId of a base query)
+            inflightPromise = baseSearchInflight.get(query.baseSearchRefId);
 
-          if (inflightPromise) {
-            try {
-              baseSearch = await inflightPromise;
-              // Re-check validity, though if the promise just resolved, it should be fresh.
-              // The main caching happens when the base promise resolves.
-              if (!this.isCacheValid(baseSearch)) {
-                baseSearch = null; // Treat as invalid if it somehow resolved to old data
+            // If not found, and baseSearchRefId might be a searchId,
+            // try to find the original base query by its searchId and use its refId.
+            // (Assuming baseSearchInflight is primarily keyed by refId for base queries,
+            // but also by searchId if populated for the base query)
+            if (!inflightPromise) {
+              const baseQueryTarget = options.targets.find(
+                t => (t.searchType === 'base' || !t.searchType) && t.searchId === query.baseSearchRefId
+              );
+              if (baseQueryTarget) {
+                // A base query's promise could be stored under its refId or its searchId
+                inflightPromise = baseSearchInflight.get(baseQueryTarget.refId) || (baseQueryTarget.searchId ? baseSearchInflight.get(baseQueryTarget.searchId) : undefined) ;
               }
-            } catch (error) {
-              console.error('Error awaiting in-flight base search for chain query:', error);
-              baseSearch = null; // Ensure baseSearch is null if await fails
             }
-          } else {
-            // No in-flight promise found, ensure baseSearch is null
-            baseSearch = null;
+
+            if (inflightPromise) {
+              try {
+                awaitedBaseSearch = await inflightPromise;
+                if (awaitedBaseSearch && !this.isCacheValid(awaitedBaseSearch)) {
+                  awaitedBaseSearch = null; // Stale data from resolved promise
+                }
+                if (awaitedBaseSearch) {
+                  break; // Successfully got valid data
+                }
+              } catch (error) {
+                console.error(`Error awaiting in-flight base search for chain query on attempt ${attempt + 1}:`, error);
+                awaitedBaseSearch = null; // Ensure null on error
+              }
+            }
+
+            // If no promise or await failed/stale, and not the last attempt, delay
+            if (!awaitedBaseSearch && attempt < maxRetries - 1) {
+              await delay(retryDelayMs);
+            }
           }
+          baseSearch = awaitedBaseSearch; // Update baseSearch with the result of retry logic
         }
 
         if (baseSearch) {

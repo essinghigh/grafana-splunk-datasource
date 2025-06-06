@@ -40,8 +40,16 @@ export class DataSource extends DataSourceApi<SplunkQuery, SplunkDataSourceOptio
   }
 
   async query(options: DataQueryRequest<SplunkQuery>): Promise<DataQueryResponse> {
-    const baseSearches = options.targets.filter(query => query.searchType === 'base' || !query.searchType);
+    const standardSearches = options.targets.filter(query => query.searchType === 'standard' || !query.searchType);
+    const baseSearches = options.targets.filter(query => query.searchType === 'base');
     const chainSearches = options.targets.filter(query => query.searchType === 'chain');
+
+    // Handle standard searches first - these are independent
+    const standardResults: any[] = [];
+    for (const query of standardSearches) {
+      const result = await this.doRequest(query, options);
+      standardResults.push(this.createDataFrame(query, result));
+    }
 
     const baseSearchPromises: Promise<BaseSearchResult>[] = [];
     const baseResults: any[] = [];
@@ -145,7 +153,7 @@ export class DataSource extends DataSourceApi<SplunkQuery, SplunkDataSourceOptio
             // but also by searchId if populated for the base query)
             if (!inflightPromise) {
               const baseQueryTarget = options.targets.find(
-                t => (t.searchType === 'base' || !t.searchType) && t.searchId === query.baseSearchRefId
+                t => t.searchType === 'base' && t.searchId === query.baseSearchRefId
               );
               if (baseQueryTarget) {
                 // A base query's promise could be stored under its refId or its searchId
@@ -192,7 +200,7 @@ export class DataSource extends DataSourceApi<SplunkQuery, SplunkDataSourceOptio
       }
     }
     
-    const allResults = [...baseResults, ...chainResults];
+    const allResults = [...standardResults, ...baseResults, ...chainResults];
     return { data: allResults };
   }
   

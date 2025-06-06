@@ -22,7 +22,7 @@ export const defaultQueryRequestResults: QueryRequestResults = {
 
 export interface SplunkQuery extends DataQuery {
   queryText: string;
-  searchType?: 'base' | 'chain';
+  searchType?: 'standard' | 'base' | 'chain';
   mode?: 'base' | 'chain'; // For backward compatibility
   baseSearchRefId?: string;
   searchId?: string; // For base searches, this will be used to identify them
@@ -30,7 +30,7 @@ export interface SplunkQuery extends DataQuery {
 
 export const defaultQuery: Partial<SplunkQuery> = {
   queryText: '',
-  searchType: 'base',
+  searchType: 'standard',
 };
 
 /**

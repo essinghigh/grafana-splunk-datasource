@@ -1,3 +1,10 @@
+## [1.0.10](https://github.com/essinghigh/grafana-splunk-datasource/compare/v1.0.9...v1.0.10) (2025-06-07)
+
+
+### Bug Fixes
+
+* enhance numeric validation and precision handling in data processing ([#7](https://github.com/essinghigh/grafana-splunk-datasource/issues/7)) ([de0314d](https://github.com/essinghigh/grafana-splunk-datasource/commit/de0314dd2fdfcd616f8e7f8b35f57c6c37518207))
+
 ## [1.0.9](https://github.com/essinghigh/grafana-splunk-datasource/compare/v1.0.8...v1.0.9) (2025-06-07)
 
 

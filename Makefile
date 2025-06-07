@@ -1,20 +1,11 @@
-.PHONY: all build build-splunk-datasource up down release
+.PHONY: all build build-splunk-datasource
 
 SHELL = BASH_ENV=.rc /bin/bash --noprofile
 
-all: build up
+all: build
 
 build: build-splunk-datasource
 
 build-splunk-datasource:
 	yarn install
 	yarn build
-
-up:
-	docker compose -f docker-compose.yaml up -d
-
-down:
-	-docker compose -f docker-compose.yaml down
-
-release:
-	npx semantic-release $(RELEASE_OPTS)

@@ -56,7 +56,7 @@ jobs:
         if: github.ref == 'refs/heads/main' && github.event_name == 'push'
         run: |
           # Check if this is a merge commit (has more than one parent) OR commit message indicates a PR merge
-          if [ $(git rev-list --count --merges HEAD^..HEAD) -gt 0 ] || git log -1 --pretty=%B | grep -qE "(Merge pull request|Merge branch)" ; then
+          if [ $(git rev-list --count --merges HEAD^..HEAD) -gt 0 ] || git log -1 --pretty=%B | grep -qE "(Merge pull request|Merge branch|\(#[0-9]+\))" ; then
             echo "is_merge=true" >> $GITHUB_OUTPUT
           else
             echo "is_merge=false" >> $GITHUB_OUTPUT

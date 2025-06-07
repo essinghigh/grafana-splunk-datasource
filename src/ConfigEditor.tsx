@@ -1,5 +1,11 @@
 import React, { PureComponent } from 'react';
-import { DataSourceHttpSettings } from '@grafana/ui';
+import {
+  ConfigSection,
+  ConnectionSettings,
+  Auth,
+  AdvancedHttpSettings,
+  convertLegacyAuthProps,
+} from '@grafana/plugin-ui';
 import { DataSourcePluginOptionsEditorProps } from '@grafana/data';
 import { SplunkDataSourceOptions } from './types';
 
@@ -16,7 +22,13 @@ export class ConfigEditor extends PureComponent<Props, State> {
     const { options, onOptionsChange } = this.props;
 
     return (
-      <DataSourceHttpSettings defaultUrl="http://splunk:8089" dataSourceConfig={options} onChange={onOptionsChange} />
+      <>
+        {ConnectionSettings({ config: options, onChange: onOptionsChange }) as React.ReactElement}
+        <Auth {...convertLegacyAuthProps({ config: options, onChange: onOptionsChange })} />
+        <ConfigSection title="Advanced settings" isCollapsible isInitiallyOpen={false}>
+          {AdvancedHttpSettings({ config: options, onChange: onOptionsChange }) as React.ReactElement}
+        </ConfigSection>
+      </>
     );
   }
 }

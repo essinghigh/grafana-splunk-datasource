@@ -518,18 +518,26 @@ export class DataSource extends DataSourceApi<SplunkQuery, SplunkDataSourceOptio
     
     // Build the chain query using loadjob
     if (baseSearch.sid) {
-      // If the chain query starts with |, use it as-is after loadjob
-      // If not, add the | prefix
-      if (chainQuery.startsWith('|')) {
-        chainQuery = `| loadjob ${baseSearch.sid} ${chainQuery}`;
+      // First, replace variables in the chain query
+      const queryWithVars = getTemplateSrv().replace(chainQuery, options.scopedVars);
+      
+      // Then build the final query, handling cases where variables might start with |
+      let finalQuery = `| loadjob ${baseSearch.sid}`;
+      
+      if (queryWithVars.trim().startsWith('|')) {
+        // If the expanded query starts with |, append it directly
+        finalQuery += ` ${queryWithVars.trim()}`;
       } else {
-        chainQuery = `| loadjob ${baseSearch.sid} | ${chainQuery}`;
+        // If not, add the | prefix
+        finalQuery += ` | ${queryWithVars.trim()}`;
       }
+      
+      chainQuery = finalQuery;
     } else {
       return this.executeChainOnCachedResults(query, baseSearch);
     }
 
-    const queryWithVars = getTemplateSrv().replace(chainQuery, options.scopedVars);
+    const queryWithVars = chainQuery;
 
     const data = new URLSearchParams({
       search: queryWithVars,

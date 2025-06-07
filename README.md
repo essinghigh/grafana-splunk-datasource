@@ -1,5 +1,7 @@
 # Grafana - Splunk Datasource
 
+![Grafana Splunk Datasource](https://github.com/essinghigh/grafana-splunk-datasource/actions/workflows/ci.yml/badge.svg?branch=main)
+
 > **Note >>>** This is a hard fork of [efcasado/grafana-plugin-splunk-datasource](https://github.com/efcasado/grafana-plugin-splunk-datasource) as the project has been abandoned for three years. I have updated a significant amount of the repo to the point that it does not have much in common with the original.
 
 

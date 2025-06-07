@@ -8,7 +8,8 @@ import {
   DataSourceApi,
   DataSourceInstanceSettings,
   MetricFindValue,
-  MutableDataFrame,
+  PartialDataFrame,
+  FieldType,
 } from '@grafana/data';
 
 import { SplunkQuery, SplunkDataSourceOptions, defaultQueryRequestResults, QueryRequestResults, BaseSearchResult } from './types';
@@ -208,28 +209,57 @@ export class DataSource extends DataSourceApi<SplunkQuery, SplunkDataSourceOptio
   
   private createDataFrame(query: SplunkQuery, response: QueryRequestResults) {
     const moment = require('moment');
-    const frame = new MutableDataFrame({
-      refId: query.refId,
-      fields: [],
-    });
-
-    response.fields.forEach((field: any) => {
-      frame.addField({ name: field });
-    });
-
-    response.results.forEach((result: any) => {
-      let row: any[] = [];
-
-      response.fields.forEach((field: any) => {
-        if (field === 'Time') {
-          let time = moment(result['_time']).format('YYYY-MM-DDTHH:mm:ssZ');
-          row.push(time);
+    
+    // Prepare fields with proper typing
+    const fields = response.fields.map((fieldName: any) => {
+      const values: any[] = [];
+      let fieldType = FieldType.string;
+      
+      // First pass: collect values
+      response.results.forEach((result: any) => {
+        if (fieldName === 'Time' || fieldName === '_time') {
+          const time = moment(result['_time']).format('YYYY-MM-DDTHH:mm:ssZ');
+          values.push(time);
         } else {
-          row.push(result[field]);
+          values.push(result[fieldName]);
         }
       });
-      frame.appendRow(row);
+      
+      // Determine field type based on content
+      if (fieldName === 'Time' || fieldName === '_time') {
+        fieldType = FieldType.time;
+      } else {
+        // Check if all non-null values are numeric
+        const nonNullValues = values.filter(v => v !== null && v !== undefined && v !== '');
+        if (nonNullValues.length > 0) {
+          const allNumeric = nonNullValues.every(v => {
+            const num = parseFloat(v);
+            return !isNaN(num) && isFinite(num);
+          });
+          
+          if (allNumeric) {
+            fieldType = FieldType.number;
+            // Convert string numbers to actual numbers
+            for (let i = 0; i < values.length; i++) {
+              if (values[i] !== null && values[i] !== undefined && values[i] !== '') {
+                values[i] = parseFloat(values[i]);
+              }
+            }
+          }
+        }
+      }
+      
+      return {
+        name: fieldName,
+        type: fieldType,
+        values: values,
+      };
     });
+
+    const frame: PartialDataFrame = {
+      refId: query.refId,
+      fields: fields,
+    };
 
     return frame;
   }

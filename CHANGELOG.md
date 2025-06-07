@@ -1,3 +1,8 @@
+## dbdeb8b (2025-06-07)
+
+Update LICENSE, README, and plugin metadata; add NOTICE file for attribution (#9)
+
+
 ## 645e1b8 (2025-06-07)
 
 Refactor code structure for improved readability and maintainability (#8)

@@ -1,20 +1,23 @@
-# Splunk Datasource for Grafana
+# Grafana - Splunk Datasource
 
 > **DISCLAIMER!**
 > This plugin is a proof-of-concept and breaking changes are very likely to be introduced.
-> Also, it has only been used in toy environments. Thus, if you are considering using it
-> in a production environment, do it at your own risk!
+> If you are considering using it in a
+> production environment, do it at your own risk!
 
 
-## What is the Splunk Datasource for Grafana
+## What is the Grafana - Splunk Datasource
 
-Splunk Datasource for Grafana is a Grafana plugin that
-allows you to pull Splunk data into your Grafana dashboards. Or, in other words,
-it is a Grafana plugin that allows you to query Splunk directly from Grafana.
+The "Grafana - Splunk Datasource" plugin is a Grafana plugin that
+allows you to run SPL queries on Splunk via Grafana.
 
-![image](https://github.com/user-attachments/assets/3ed0255b-c794-4e7f-bebb-5c35c35e75a0)
+![image](https://github.com/user-attachments/assets/e7c7ff5e-be86-4bf3-9782-933bb3a846ef)
 
-### Installation
+### Primary Features
+* Support for query variables
+* Support for Base/Chain searches
+
+## Installation
 
 1. Download the latest release of the plugin
 
@@ -27,7 +30,7 @@ it is a Grafana plugin that allows you to query Splunk directly from Grafana.
 
     ```allow_loading_unsigned_plugins = essinghigh-splunk-datasource ```
  
-### Configuration
+## Configuration
 
 The plugin can be configured
 by an administrator from Grafana's UI `Configuration --> Datasources --> Add data source`. 
@@ -36,12 +39,15 @@ NB: By default Splunk's REST API is only available via HTTPS (even if you allow 
 
 (example configuration via the Grafana web-GUI (in Grafana 11.6.1):
 
-<img src="https://github.com/user-attachments/assets/ec73429f-2c63-4f0e-9fa1-ed33581e5e8a" width="50%" />
+<img src="https://github.com/user-attachments/assets/a5790b24-e1d8-4ed7-8f52-fa6e2df0d511" width="50%" />
 
+## Testing in Grafana:
 
-
-    
-### Testing in Grafana:
-    Using a standard Splunk Query as a Grafana Query (and showing splunk results):
+### Using a standard Splunk Query as a Grafana Query (and showing splunk results):`
 ![image](https://github.com/user-attachments/assets/008c243f-1881-4747-a345-f81323f8be22)
+
+### Using base / chain searches
+![image](https://github.com/user-attachments/assets/87924b9d-a6f8-4a00-9b6c-3a2444f88615)
+![image](https://github.com/user-attachments/assets/c3e72369-606a-41b3-a06c-691ff3934c2d)
+![image](https://github.com/user-attachments/assets/44b807e7-09c0-4caa-9aa4-4d9dfc2a722d)
 

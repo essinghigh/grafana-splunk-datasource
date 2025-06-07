@@ -1,3 +1,8 @@
+## 38e0026 (2025-06-07)
+
+Merge branch 'main' of github.com:essinghigh/grafana-splunk-datasource
+
+
 ## dbdeb8b (2025-06-07)
 
 Update LICENSE, README, and plugin metadata; add NOTICE file for attribution (#9)

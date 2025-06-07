@@ -1,3 +1,10 @@
+## [1.0.9](https://github.com/essinghigh/grafana-splunk-datasource/compare/v1.0.8...v1.0.9) (2025-06-07)
+
+
+### Bug Fixes
+
+* improve chain query handling with variable replacement in loadjob ([#6](https://github.com/essinghigh/grafana-splunk-datasource/issues/6)) ([6c79588](https://github.com/essinghigh/grafana-splunk-datasource/commit/6c7958822220e9626f6496d571a7508fcd7ffb93))
+
 ## [1.0.8](https://github.com/essinghigh/grafana-splunk-datasource/compare/v1.0.7...v1.0.8) (2025-06-07)
 
 

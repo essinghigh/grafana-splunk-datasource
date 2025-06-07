@@ -1,5 +1,8 @@
 # Grafana - Splunk Datasource
 
+> **Note >>>** This is a hard fork of [efcasado/grafana-plugin-splunk-datasource](https://github.com/efcasado/grafana-plugin-splunk-datasource) as the project has been abandoned for three years. I have updated a significant amount of the repo to the point that it does not have much in common with the original.
+
+
 > **DISCLAIMER!**
 > This plugin is a proof-of-concept and breaking changes are very likely to be introduced.
 > If you are considering using it in a

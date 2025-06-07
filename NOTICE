@@ -1,0 +1,4 @@
+This software contains code derived from:
+- grafana-plugin-splunk-datasource by Enrique Fernandez (efcasado)
+- Original repository: https://github.com/efcasado/grafana-plugin-splunk-datasource
+- Licensed under MIT License

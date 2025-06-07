@@ -1,3 +1,8 @@
+## 645e1b8 (2025-06-07)
+
+Refactor code structure for improved readability and maintainability (#8)
+
+
 ## 0d5e0fb (2025-06-07)
 
 Merge branch stupid CI

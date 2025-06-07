@@ -1,3 +1,10 @@
+## [1.0.8](https://github.com/essinghigh/grafana-splunk-datasource/compare/v1.0.7...v1.0.8) (2025-06-07)
+
+
+### Bug Fixes
+
+* invalidate base search cache on query / timeframe change ([#6](https://github.com/essinghigh/grafana-splunk-datasource/issues/6)) ([a0514b2](https://github.com/essinghigh/grafana-splunk-datasource/commit/a0514b2a423ee03e92acaa799f5e58aff1975b1f))
+
 ## [1.0.7](https://github.com/essinghigh/grafana-splunk-datasource/compare/v1.0.6...v1.0.7) (2025-06-07)
 
 ## [1.0.6](https://github.com/essinghigh/grafana-splunk-datasource/compare/v1.0.5...v1.0.6) (2025-06-07)

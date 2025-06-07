@@ -1,3 +1,10 @@
+## [1.0.5](https://github.com/essinghigh/grafana-splunk-datasource/compare/v1.0.4...v1.0.5) (2025-06-07)
+
+
+### Bug Fixes
+
+* **ci:** ensure credentials are not persisted during checkout ([e2c7a69](https://github.com/essinghigh/grafana-splunk-datasource/commit/e2c7a692eec6e764e75c46dfd3d4c39e6504f8a3))
+
 ## [1.0.4](https://github.com/essinghigh/grafana-splunk-datasource/compare/v1.0.3...v1.0.4) (2025-06-06)
 
 ## [1.0.3](https://github.com/essinghigh/grafana-splunk-datasource/compare/v1.0.2...v1.0.3) (2025-06-06)

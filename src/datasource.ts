@@ -1,5 +1,4 @@
 import { getBackendSrv, getTemplateSrv } from '@grafana/runtime';
-// Workaround for rxjs type mismatch in Grafana plugin dev: force import from @grafana/data's rxjs
 import { lastValueFrom } from 'rxjs';
 
 import {
@@ -88,18 +87,15 @@ export class DataSource extends DataSourceApi<SplunkQuery, SplunkDataSourceOptio
       let cachedResult = this.findBaseSearchResult(cacheKey);
 
       if (cachedResult) {
-        console.log('Using cached base search result for:', cacheKey);
         baseSearchPromises.push(Promise.resolve(cachedResult));
       } else {
         // 2. Check for existing in-flight promise
         let inflightPromise = baseSearchInflight.get(cacheKey);
 
         if (inflightPromise) {
-          console.log('Using in-flight base search promise for:', cacheKey);
           baseSearchPromises.push(inflightPromise);
         } else {
           // 3. No cached result, no in-flight promise: Execute new search
-          console.log('Executing new base search for:', cacheKey);
           const executeAndCacheBaseSearch = async (): Promise<BaseSearchResult> => {
             const result = await this.doRequest(query, options);
             const baseResult: BaseSearchResult = {
@@ -154,11 +150,9 @@ export class DataSource extends DataSourceApi<SplunkQuery, SplunkDataSourceOptio
         baseResults.push(dataFrame);
       } else {
         // This case should ideally not happen if logic is correct
-        console.error("Could not find original query for completed base search result", completedResult);
       }
     }
     
-    console.log('Cache after base searches:', Array.from(baseSearchCache.keys()));
     
     // Now execute chain searches
     const chainResults: any[] = [];
@@ -201,7 +195,6 @@ export class DataSource extends DataSourceApi<SplunkQuery, SplunkDataSourceOptio
                   break; // Successfully got valid data
                 }
               } catch (error) {
-                console.error(`Error awaiting in-flight base search for chain query on attempt ${attempt + 1}:`, error);
                 awaitedBaseSearch = null; // Ensure null on error
               }
             }
@@ -215,12 +208,10 @@ export class DataSource extends DataSourceApi<SplunkQuery, SplunkDataSourceOptio
         }
 
         if (baseSearch) {
-          console.log('Executing chain search with base search SID:', baseSearch.sid);
           const chainResult = await this.doChainRequest(query, options, baseSearch);
           chainResults.push(this.createDataFrame(query, chainResult));
         } else {
           // Fallback: Execute as a regular search if no valid baseSearch could be obtained
-          console.warn(`Base search result for ${query.baseSearchRefId} not found or invalid, executing chain search as regular search.`);
           const result = await this.doRequest(query, options);
           chainResults.push(this.createDataFrame(query, result));
         }
@@ -311,7 +302,6 @@ export class DataSource extends DataSourceApi<SplunkQuery, SplunkDataSourceOptio
     } else if (cachedResult && !this.isCacheValid(cachedResult)) {
       // Remove stale cache entry
       baseSearchCache.delete(cacheKey);
-      console.log('Removed stale cache entry for:', cacheKey);
     }
     return null;
   }
@@ -323,7 +313,6 @@ export class DataSource extends DataSourceApi<SplunkQuery, SplunkDataSourceOptio
     } else if (cachedResult && !this.isCacheValid(cachedResult)) {
       // Remove stale cache entry
       baseSearchCache.delete(baseSearchRefId);
-      console.log('Removed stale cache entry for refId:', baseSearchRefId);
     }
     return null;
   }
@@ -344,7 +333,6 @@ export class DataSource extends DataSourceApi<SplunkQuery, SplunkDataSourceOptio
     
     keysToDelete.forEach(key => {
       baseSearchCache.delete(key);
-      console.log('Cleaned up stale cache entry:', key);
     });
   }
 
@@ -396,44 +384,31 @@ export class DataSource extends DataSourceApi<SplunkQuery, SplunkDataSourceOptio
 
   async doSearchRequest(query: SplunkQuery, options: DataQueryRequest<SplunkQuery>): Promise<{sid: string} | null> {
     if ((query.queryText || '').trim().length < 4) {
-      console.warn('Query text too short or empty for query:', query.refId);
       return null;
     }
-    
     const { range } = options;
     const from = Math.floor(range!.from.valueOf() / 1000);
     const to = Math.floor(range!.to.valueOf() / 1000);
-
     const prefix = (query.queryText || ' ')[0].trim() === '|' ? '' : 'search';
     const queryWithVars = getTemplateSrv().replace(`${prefix} ${query.queryText}`.trim(), options.scopedVars);
-
-    console.log('Executing Splunk search:', queryWithVars, 'Time range:', from, 'to', to);
-
     const data = new URLSearchParams({
       search: queryWithVars,
       output_mode: 'json',
       earliest_time: from.toString(),
       latest_time: to.toString(),
     }).toString();
-
-    try {
-      const response: any = await lastValueFrom(
-        (getBackendSrv().fetch<any>({
-          method: 'POST',
-          url: this.url + '/services/search/jobs',
-          headers: {
-            'Content-Type': 'application/x-www-form-urlencoded',
-          },
-          data: data,
-        }) as any)
-      );
-      const sid: string = (response.data as any).sid;
-      console.log('Search job created with SID:', sid);
-      return { sid };
-    } catch (error) {
-      console.error('Error creating search job:', error);
-      throw error;
-    }
+    const response: any = await lastValueFrom(
+      (getBackendSrv().fetch<any>({
+        method: 'POST',
+        url: this.url + '/services/search/jobs',
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded',
+        },
+        data: data,
+      }) as any)
+    );
+    const sid: string = (response.data as any).sid;
+    return { sid };
   }
 
   async doGetAllResultsRequest(sid: string) {
@@ -486,39 +461,20 @@ export class DataSource extends DataSourceApi<SplunkQuery, SplunkDataSourceOptio
   }
 
   async doRequest(query: SplunkQuery, options: DataQueryRequest<SplunkQuery>): Promise<QueryRequestResults & { sid?: string }> {
-    console.log('Executing doRequest for query:', query.refId, 'searchType:', query.searchType);
-    
-    try {
-      const searchResult = await this.doSearchRequest(query, options);
-      const sid: string = searchResult?.sid || '';
-      
-      console.log('Search initiated with SID:', sid);
-      
-      if (sid.length > 0) {
-        while (!(await this.doSearchStatusRequest(sid))) {
-          // Add a small delay to prevent excessive polling
-          await delay(100);
-        }
-        const result = await this.doGetAllResultsRequest(sid);
-        
-        console.log('Search completed for SID:', sid, 'Results count:', result.results.length);
-        
-        // Return the result with SID so the calling code can store it
-        return { ...result, sid };
+    const searchResult = await this.doSearchRequest(query, options);
+    const sid: string = searchResult?.sid || '';
+    if (sid.length > 0) {
+      while (!(await this.doSearchStatusRequest(sid))) {
+        await delay(100);
       }
-      
-      console.warn('Search request returned empty SID for query:', query.refId);
-      return defaultQueryRequestResults;
-    } catch (error) {
-      console.error('Error in doRequest for query:', query.refId, error);
-      throw error;
+      const result = await this.doGetAllResultsRequest(sid);
+      return { ...result, sid };
     }
+    return defaultQueryRequestResults;
   }
 
   async doChainRequest(query: SplunkQuery, options: DataQueryRequest<SplunkQuery>, baseSearch: BaseSearchResult): Promise<QueryRequestResults> {
-    
     if ((query.queryText || '').trim().length < 1) {
-      console.warn('Chain query text is empty');
       return defaultQueryRequestResults;
     }
     
@@ -527,32 +483,17 @@ export class DataSource extends DataSourceApi<SplunkQuery, SplunkDataSourceOptio
     const to = Math.floor(range!.to.valueOf() / 1000);
 
     let chainQuery = query.queryText.trim();
-    
-    // Build the chain query using loadjob
     if (baseSearch.sid) {
-      // First, replace variables in the chain query
-      const queryWithVars = getTemplateSrv().replace(chainQuery, options.scopedVars);
-      
-      // Then build the final query, handling cases where variables might start with |
-      let finalQuery = `| loadjob ${baseSearch.sid}`;
-      
-      if (queryWithVars.trim().startsWith('|')) {
-        // If the expanded query starts with |, append it directly
-        finalQuery += ` ${queryWithVars.trim()}`;
-      } else {
-        // If not, add the | prefix
-        finalQuery += ` | ${queryWithVars.trim()}`;
-      }
-      
-      chainQuery = finalQuery;
+      const vars = getTemplateSrv().replace(chainQuery, options.scopedVars).trim();
+      chainQuery = vars.startsWith('|')
+        ? `| loadjob ${baseSearch.sid} ${vars}`
+        : `| loadjob ${baseSearch.sid} | ${vars}`;
     } else {
       return this.executeChainOnCachedResults(query, baseSearch);
     }
 
-    const queryWithVars = chainQuery;
-
     const data = new URLSearchParams({
-      search: queryWithVars,
+      search: chainQuery,
       output_mode: 'json',
       earliest_time: from.toString(),
       latest_time: to.toString(),
@@ -589,7 +530,6 @@ export class DataSource extends DataSourceApi<SplunkQuery, SplunkDataSourceOptio
     
     // For now, we'll return the base search results and let Grafana handle transformations
     // This could be enhanced to parse and execute simple Splunk commands locally
-    console.warn('Chain search executed on cached results. Consider implementing |loadjob for better performance.');
     
     return {
       fields: baseSearch.fields,

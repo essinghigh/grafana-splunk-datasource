@@ -1,3 +1,8 @@
+## 867f1be (2025-06-07)
+
+Remove a bunch of unused stuff (#10)
+
+
 ## 38e0026 (2025-06-07)
 
 Merge branch 'main' of github.com:essinghigh/grafana-splunk-datasource

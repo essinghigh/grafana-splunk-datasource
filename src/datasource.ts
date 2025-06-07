@@ -51,7 +51,7 @@ export class DataSource extends DataSourceApi<SplunkQuery, SplunkDataSourceOptio
       standardResults.push(this.createDataFrame(query, result));
     }
 
-    const baseSearchPromises: Promise<BaseSearchResult>[] = [];
+    const baseSearchPromises: Array<Promise<BaseSearchResult>> = [];
     const baseResults: any[] = [];
 
     for (const query of baseSearches) {

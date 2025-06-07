@@ -73,7 +73,10 @@ if [ -n "$(git status --porcelain CHANGELOG.md)" ]; then
     
     # If running in GitHub Actions, handle authentication for push
     if [ -n "$GITHUB_ACTIONS" ]; then
-        # Actions provides a token automatically
+        echo "Setting up authentication for GitHub Actions"
+        # Use the GITHUB_TOKEN to authenticate the push
+        # This changes the remote URL to include the token
+        git remote set-url origin "https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
         echo "Pushing changes using GitHub Actions token"
         git push origin HEAD:${GITHUB_REF#refs/heads/}
     else

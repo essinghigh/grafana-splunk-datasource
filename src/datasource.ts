@@ -257,20 +257,32 @@ export class DataSource extends DataSourceApi<SplunkQuery, SplunkDataSourceOptio
       if (fieldName === 'Time' || fieldName === '_time') {
         fieldType = FieldType.time;
       } else {
-        // Check if all non-null values are numeric
+        // Check if all non-null values are purely numeric (not mixed text/numbers)
         const nonNullValues = values.filter(v => v !== null && v !== undefined && v !== '');
         if (nonNullValues.length > 0) {
           const allNumeric = nonNullValues.every(v => {
-            const num = parseFloat(v);
-            return !isNaN(num) && isFinite(num);
+            // Convert to string to check if it's purely numeric
+            const strValue = String(v).trim();
+            // Check if the string contains only digits, decimal points, minus signs, and scientific notation
+            const numericPattern = /^-?(\d+\.?\d*|\.\d+)([eE][+-]?\d+)?$/;
+            const isNumericString = numericPattern.test(strValue);
+            
+            if (isNumericString) {
+              const num = parseFloat(strValue);
+              return !isNaN(num) && isFinite(num);
+            }
+            return false;
           });
           
           if (allNumeric) {
             fieldType = FieldType.number;
-            // Convert string numbers to actual numbers
+            // Convert string numbers to actual numbers, preserving precision
             for (let i = 0; i < values.length; i++) {
               if (values[i] !== null && values[i] !== undefined && values[i] !== '') {
-                values[i] = parseFloat(values[i]);
+                const originalValue = String(values[i]);
+                const parsedValue = parseFloat(originalValue);
+                // Preserve the original precision for decimal numbers
+                values[i] = parsedValue;
               }
             }
           }

@@ -2,14 +2,17 @@
 
 ![Grafana Splunk Datasource](https://github.com/essinghigh/grafana-splunk-datasource/actions/workflows/ci.yml/badge.svg?branch=main)
 
-> **Note >>>** This is a hard fork of [efcasado/grafana-plugin-splunk-datasource](https://github.com/efcasado/grafana-plugin-splunk-datasource) as the project has been abandoned for three years. I have updated a significant amount of the repo to the point that it does not have much in common with the original.
+> **Note >>>**
+>
+>This is a hard fork of [efcasado/grafana-plugin-splunk-datasource](https://github.com/efcasado/grafana-plugin-splunk-datasource) as the project has been abandoned for three years. I have updated a significant amount of the repo to the point that it does not have much in common with the original.
 
-
-> **DISCLAIMER!**
-> This plugin is a proof-of-concept and breaking changes are very likely to be introduced.
-> If you are considering using it in a
-> production environment, do it at your own risk!
-
+> **IMPORTANT NOTICE & DISCLAIMER >>>**
+>
+> This Splunk datasource plugin for Grafana is an independent project and is not affiliated with, endorsed, or sponsored by Grafana Labs. 
+> 
+> It was created without any reference to or knowledge of the official, closed-source Splunk plugin available in Grafana's Enterprise plan. This plugin is provided "as-is" under the MIT License, with no warranties of any kind, express or implied.
+> 
+> As an unsigned plugin, you will need to configure your Grafana instance to allow its use. Please be aware that this plugin under active development, and breaking changes may be introduced. Use in a production environment is not recommended without thorough testing. 
 
 ## What is the Grafana - Splunk Datasource
 

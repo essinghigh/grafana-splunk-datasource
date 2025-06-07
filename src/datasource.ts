@@ -20,6 +20,25 @@ const CACHE_TTL = 5 * 60 * 1000; // 5 minutes cache TTL
 
 const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
+// Generate a cache key that includes query parameters to ensure proper invalidation
+function generateCacheKey(query: SplunkQuery, options: DataQueryRequest<SplunkQuery>): string {
+  const { range } = options;
+  const from = Math.floor(range!.from.valueOf() / 1000);
+  const to = Math.floor(range!.to.valueOf() / 1000);
+  
+  // Include query text, time range, and other relevant parameters in the cache key
+  const keyComponents = [
+    query.refId || '',
+    query.searchId || '',
+    query.queryText || '',
+    from.toString(),
+    to.toString(),
+    JSON.stringify(options.scopedVars || {})
+  ];
+  
+  return keyComponents.join('|');
+}
+
 export class DataSource extends DataSourceApi<SplunkQuery, SplunkDataSourceOptions> {
   url?: string;
 
@@ -43,6 +62,9 @@ export class DataSource extends DataSourceApi<SplunkQuery, SplunkDataSourceOptio
   }
 
   async query(options: DataQueryRequest<SplunkQuery>): Promise<DataQueryResponse> {
+    // Clean up stale cache entries periodically
+    this.cleanupStaleCache();
+    
     const standardSearches = options.targets.filter(query => query.searchType === 'standard' || !query.searchType);
     const baseSearches = options.targets.filter(query => query.searchType === 'base');
     const chainSearches = options.targets.filter(query => query.searchType === 'chain');
@@ -58,28 +80,26 @@ export class DataSource extends DataSourceApi<SplunkQuery, SplunkDataSourceOptio
     const baseResults: any[] = [];
 
     for (const query of baseSearches) {
-      const primaryKey = query.refId; // Assuming refId is the primary key
+      const cacheKey = generateCacheKey(query, options);
+      const primaryKey = query.refId; // For compatibility with chain searches
       const searchIdKey = query.searchId;
 
-      // 1. Check cache first
-      let cachedResult = this.findBaseSearchResult(primaryKey);
-      if (searchIdKey && !cachedResult) {
-        cachedResult = this.findBaseSearchResult(searchIdKey);
-      }
+      // 1. Check cache first using the proper cache key
+      let cachedResult = this.findBaseSearchResult(cacheKey);
 
       if (cachedResult) {
+        console.log('Using cached base search result for:', cacheKey);
         baseSearchPromises.push(Promise.resolve(cachedResult));
       } else {
         // 2. Check for existing in-flight promise
-        let inflightPromise = baseSearchInflight.get(primaryKey);
-        if (searchIdKey && !inflightPromise) {
-          inflightPromise = baseSearchInflight.get(searchIdKey);
-        }
+        let inflightPromise = baseSearchInflight.get(cacheKey);
 
         if (inflightPromise) {
+          console.log('Using in-flight base search promise for:', cacheKey);
           baseSearchPromises.push(inflightPromise);
         } else {
           // 3. No cached result, no in-flight promise: Execute new search
+          console.log('Executing new base search for:', cacheKey);
           const executeAndCacheBaseSearch = async (): Promise<BaseSearchResult> => {
             const result = await this.doRequest(query, options);
             const baseResult: BaseSearchResult = {
@@ -89,7 +109,12 @@ export class DataSource extends DataSourceApi<SplunkQuery, SplunkDataSourceOptio
               fields: result.fields,
               results: result.results,
               timestamp: Date.now(),
+              cacheKey: cacheKey, // Store the cache key for reference
             };
+            
+            // Store in cache with the proper cache key
+            baseSearchCache.set(cacheKey, baseResult);
+            // Also store with refId and searchId for chain search compatibility
             baseSearchCache.set(query.refId, baseResult);
             if (query.searchId) {
               baseSearchCache.set(query.searchId, baseResult);
@@ -101,12 +126,14 @@ export class DataSource extends DataSourceApi<SplunkQuery, SplunkDataSourceOptio
 
           // Wrap promise with finally for cleanup
           newPromise = newPromise.finally(() => {
+            baseSearchInflight.delete(cacheKey);
             baseSearchInflight.delete(primaryKey);
             if (searchIdKey) {
               baseSearchInflight.delete(searchIdKey);
             }
           });
 
+          baseSearchInflight.set(cacheKey, newPromise);
           baseSearchInflight.set(primaryKey, newPromise);
           if (searchIdKey) {
             baseSearchInflight.set(searchIdKey, newPromise);
@@ -137,7 +164,7 @@ export class DataSource extends DataSourceApi<SplunkQuery, SplunkDataSourceOptio
     const chainResults: any[] = [];
     for (const query of chainSearches) {
       if (query.baseSearchRefId) {
-        let baseSearch = this.findBaseSearchResult(query.baseSearchRefId);
+        let baseSearch = this.findBaseSearchResultByRefId(query.baseSearchRefId);
 
         if (!baseSearch || !this.isCacheValid(baseSearch)) {
           let awaitedBaseSearch: BaseSearchResult | null = null;
@@ -188,6 +215,7 @@ export class DataSource extends DataSourceApi<SplunkQuery, SplunkDataSourceOptio
         }
 
         if (baseSearch) {
+          console.log('Executing chain search with base search SID:', baseSearch.sid);
           const chainResult = await this.doChainRequest(query, options, baseSearch);
           chainResults.push(this.createDataFrame(query, chainResult));
         } else {
@@ -264,16 +292,48 @@ export class DataSource extends DataSourceApi<SplunkQuery, SplunkDataSourceOptio
     return frame;
   }
   
-  private findBaseSearchResult(baseSearchRefId: string): BaseSearchResult | null {
+  private findBaseSearchResult(cacheKey: string): BaseSearchResult | null {
+    const cachedResult = baseSearchCache.get(cacheKey);
+    if (cachedResult && this.isCacheValid(cachedResult)) {
+      return cachedResult;
+    } else if (cachedResult && !this.isCacheValid(cachedResult)) {
+      // Remove stale cache entry
+      baseSearchCache.delete(cacheKey);
+      console.log('Removed stale cache entry for:', cacheKey);
+    }
+    return null;
+  }
+  
+  private findBaseSearchResultByRefId(baseSearchRefId: string): BaseSearchResult | null {
     const cachedResult = baseSearchCache.get(baseSearchRefId);
     if (cachedResult && this.isCacheValid(cachedResult)) {
       return cachedResult;
+    } else if (cachedResult && !this.isCacheValid(cachedResult)) {
+      // Remove stale cache entry
+      baseSearchCache.delete(baseSearchRefId);
+      console.log('Removed stale cache entry for refId:', baseSearchRefId);
     }
     return null;
   }
   
   private isCacheValid(cached: BaseSearchResult): boolean {
     return (Date.now() - cached.timestamp) < CACHE_TTL;
+  }
+  
+  private cleanupStaleCache(): void {
+    const now = Date.now();
+    const keysToDelete: string[] = [];
+    
+    for (const [key, result] of baseSearchCache.entries()) {
+      if ((now - result.timestamp) >= CACHE_TTL) {
+        keysToDelete.push(key);
+      }
+    }
+    
+    keysToDelete.forEach(key => {
+      baseSearchCache.delete(key);
+      console.log('Cleaned up stale cache entry:', key);
+    });
   }
 
   async testDatasource() {
@@ -324,14 +384,18 @@ export class DataSource extends DataSourceApi<SplunkQuery, SplunkDataSourceOptio
 
   async doSearchRequest(query: SplunkQuery, options: DataQueryRequest<SplunkQuery>): Promise<{sid: string} | null> {
     if ((query.queryText || '').trim().length < 4) {
+      console.warn('Query text too short or empty for query:', query.refId);
       return null;
     }
+    
     const { range } = options;
     const from = Math.floor(range!.from.valueOf() / 1000);
     const to = Math.floor(range!.to.valueOf() / 1000);
 
     const prefix = (query.queryText || ' ')[0].trim() === '|' ? '' : 'search';
     const queryWithVars = getTemplateSrv().replace(`${prefix} ${query.queryText}`.trim(), options.scopedVars);
+
+    console.log('Executing Splunk search:', queryWithVars, 'Time range:', from, 'to', to);
 
     const data = new URLSearchParams({
       search: queryWithVars,
@@ -340,18 +404,24 @@ export class DataSource extends DataSourceApi<SplunkQuery, SplunkDataSourceOptio
       latest_time: to.toString(),
     }).toString();
 
-    const response: any = await lastValueFrom(
-      (getBackendSrv().fetch<any>({
-        method: 'POST',
-        url: this.url + '/services/search/jobs',
-        headers: {
-          'Content-Type': 'application/x-www-form-urlencoded',
-        },
-        data: data,
-      }) as any)
-    );
-    const sid: string = (response.data as any).sid;
-    return { sid };
+    try {
+      const response: any = await lastValueFrom(
+        (getBackendSrv().fetch<any>({
+          method: 'POST',
+          url: this.url + '/services/search/jobs',
+          headers: {
+            'Content-Type': 'application/x-www-form-urlencoded',
+          },
+          data: data,
+        }) as any)
+      );
+      const sid: string = (response.data as any).sid;
+      console.log('Search job created with SID:', sid);
+      return { sid };
+    } catch (error) {
+      console.error('Error creating search job:', error);
+      throw error;
+    }
   }
 
   async doGetAllResultsRequest(sid: string) {
@@ -404,18 +474,33 @@ export class DataSource extends DataSourceApi<SplunkQuery, SplunkDataSourceOptio
   }
 
   async doRequest(query: SplunkQuery, options: DataQueryRequest<SplunkQuery>): Promise<QueryRequestResults & { sid?: string }> {
-    const searchResult = await this.doSearchRequest(query, options);
-    const sid: string = searchResult?.sid || '';
+    console.log('Executing doRequest for query:', query.refId, 'searchType:', query.searchType);
     
-    
-    if (sid.length > 0) {
-      while (!(await this.doSearchStatusRequest(sid))) {}
-      const result = await this.doGetAllResultsRequest(sid);
+    try {
+      const searchResult = await this.doSearchRequest(query, options);
+      const sid: string = searchResult?.sid || '';
       
-      // Return the result with SID so the calling code can store it
-      return { ...result, sid };
+      console.log('Search initiated with SID:', sid);
+      
+      if (sid.length > 0) {
+        while (!(await this.doSearchStatusRequest(sid))) {
+          // Add a small delay to prevent excessive polling
+          await delay(100);
+        }
+        const result = await this.doGetAllResultsRequest(sid);
+        
+        console.log('Search completed for SID:', sid, 'Results count:', result.results.length);
+        
+        // Return the result with SID so the calling code can store it
+        return { ...result, sid };
+      }
+      
+      console.warn('Search request returned empty SID for query:', query.refId);
+      return defaultQueryRequestResults;
+    } catch (error) {
+      console.error('Error in doRequest for query:', query.refId, error);
+      throw error;
     }
-    return defaultQueryRequestResults;
   }
 
   async doChainRequest(query: SplunkQuery, options: DataQueryRequest<SplunkQuery>, baseSearch: BaseSearchResult): Promise<QueryRequestResults> {

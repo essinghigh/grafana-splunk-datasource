@@ -14,6 +14,7 @@ export interface BaseSearchResult {
   fields: any[];
   results: any[];
   timestamp: number;
+  cacheKey?: string; // Optional cache key for reference
 }
 
 export const defaultQueryRequestResults: QueryRequestResults = {

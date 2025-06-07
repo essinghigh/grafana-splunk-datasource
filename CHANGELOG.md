@@ -1,3 +1,16 @@
+## [1.0.6](https://github.com/essinghigh/grafana-splunk-datasource/compare/v1.0.5...v1.0.6) (2025-06-07)
+
+
+### Bug Fixes
+
+* **ci:** add check for merge commits before semantic release ([65e29f5](https://github.com/essinghigh/grafana-splunk-datasource/commit/65e29f558b6a0565568fa1f6815b85847dc42607))
+* **ci:** enhance merge commit detection in CI workflow ([#4](https://github.com/essinghigh/grafana-splunk-datasource/issues/4)) ([31767d7](https://github.com/essinghigh/grafana-splunk-datasource/commit/31767d7326fd621b29f5041e555c701d24e09ef9))
+
+
+### Features
+
+* update dependencies and refactor ConfigEditor component ([#4](https://github.com/essinghigh/grafana-splunk-datasource/issues/4)) ([cb89df7](https://github.com/essinghigh/grafana-splunk-datasource/commit/cb89df7d811271cb31fe3b92270e41ded957741a))
+
 ## [1.0.5](https://github.com/essinghigh/grafana-splunk-datasource/compare/v1.0.4...v1.0.5) (2025-06-07)
 
 

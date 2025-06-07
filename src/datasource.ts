@@ -1,4 +1,6 @@
 import { getBackendSrv, getTemplateSrv } from '@grafana/runtime';
+// Workaround for rxjs type mismatch in Grafana plugin dev: force import from @grafana/data's rxjs
+import { lastValueFrom } from 'rxjs';
 
 import {
   DataQueryRequest,
@@ -6,7 +8,8 @@ import {
   DataSourceApi,
   DataSourceInstanceSettings,
   MetricFindValue,
-  MutableDataFrame,
+  PartialDataFrame,
+  FieldType,
 } from '@grafana/data';
 
 import { SplunkQuery, SplunkDataSourceOptions, defaultQueryRequestResults, QueryRequestResults, BaseSearchResult } from './types';
@@ -51,7 +54,7 @@ export class DataSource extends DataSourceApi<SplunkQuery, SplunkDataSourceOptio
       standardResults.push(this.createDataFrame(query, result));
     }
 
-    const baseSearchPromises: Promise<BaseSearchResult>[] = [];
+    const baseSearchPromises: Array<Promise<BaseSearchResult>> = [];
     const baseResults: any[] = [];
 
     for (const query of baseSearches) {
@@ -206,28 +209,57 @@ export class DataSource extends DataSourceApi<SplunkQuery, SplunkDataSourceOptio
   
   private createDataFrame(query: SplunkQuery, response: QueryRequestResults) {
     const moment = require('moment');
-    const frame = new MutableDataFrame({
-      refId: query.refId,
-      fields: [],
-    });
-
-    response.fields.forEach((field: any) => {
-      frame.addField({ name: field });
-    });
-
-    response.results.forEach((result: any) => {
-      let row: any[] = [];
-
-      response.fields.forEach((field: any) => {
-        if (field === 'Time') {
-          let time = moment(result['_time']).format('YYYY-MM-DDTHH:mm:ssZ');
-          row.push(time);
+    
+    // Prepare fields with proper typing
+    const fields = response.fields.map((fieldName: any) => {
+      const values: any[] = [];
+      let fieldType = FieldType.string;
+      
+      // First pass: collect values
+      response.results.forEach((result: any) => {
+        if (fieldName === 'Time' || fieldName === '_time') {
+          const time = moment(result['_time']).format('YYYY-MM-DDTHH:mm:ssZ');
+          values.push(time);
         } else {
-          row.push(result[field]);
+          values.push(result[fieldName]);
         }
       });
-      frame.appendRow(row);
+      
+      // Determine field type based on content
+      if (fieldName === 'Time' || fieldName === '_time') {
+        fieldType = FieldType.time;
+      } else {
+        // Check if all non-null values are numeric
+        const nonNullValues = values.filter(v => v !== null && v !== undefined && v !== '');
+        if (nonNullValues.length > 0) {
+          const allNumeric = nonNullValues.every(v => {
+            const num = parseFloat(v);
+            return !isNaN(num) && isFinite(num);
+          });
+          
+          if (allNumeric) {
+            fieldType = FieldType.number;
+            // Convert string numbers to actual numbers
+            for (let i = 0; i < values.length; i++) {
+              if (values[i] !== null && values[i] !== undefined && values[i] !== '') {
+                values[i] = parseFloat(values[i]);
+              }
+            }
+          }
+        }
+      }
+      
+      return {
+        name: fieldName,
+        type: fieldType,
+        values: values,
+      };
     });
+
+    const frame: PartialDataFrame = {
+      refId: query.refId,
+      fields: fields,
+    };
 
     return frame;
   }
@@ -251,48 +283,43 @@ export class DataSource extends DataSourceApi<SplunkQuery, SplunkDataSourceOptio
       exec_mode: 'oneshot',
     }).toString();
 
-    return getBackendSrv()
-      .datasourceRequest({
-        method: 'POST',
-        url: this.url + '/services/search/jobs',
-        headers: {
-          'Content-Type': 'application/x-www-form-urlencoded',
-        },
-        data: data,
-      })
-      .then(
-        (response: any) => {
-          return {
-            status: 'success',
-            message: 'Data source is working',
-            title: 'Success',
-          };
-        },
-        (err: any) => {
-          return {
-            status: 'error',
-            message: err.statusText,
-            title: 'Error',
-          };
-        }
+    try {
+      await lastValueFrom(
+        (getBackendSrv().fetch<any>({
+          method: 'POST',
+          url: this.url + '/services/search/jobs',
+          headers: {
+            'Content-Type': 'application/x-www-form-urlencoded',
+          },
+          data: data,
+        }) as any)
       );
+      return {
+        status: 'success',
+        message: 'Data source is working',
+        title: 'Success',
+      };
+    } catch (err: any) {
+      return {
+        status: 'error',
+        message: err.statusText,
+        title: 'Error',
+      };
+    }
   }
 
   async doSearchStatusRequest(sid: string) {
-    const result: boolean = await getBackendSrv()
-      .datasourceRequest({
+    const response: any = await lastValueFrom(
+      (getBackendSrv().fetch<any>({
         method: 'GET',
         url: this.url + '/services/search/jobs/' + sid,
         params: {
           output_mode: 'json',
         },
-      })
-      .then((response) => {
-        let status = (response.data as any).entry[0].content.dispatchState;
-        return status === 'DONE' || status === 'PAUSED' || status === 'FAILED';
-      });
-
-    return result;
+      }) as any)
+    );
+    let status = (response.data as any).entry[0].content.dispatchState;
+    return status === 'DONE' || status === 'PAUSED' || status === 'FAILED';
   }
 
   async doSearchRequest(query: SplunkQuery, options: DataQueryRequest<SplunkQuery>): Promise<{sid: string} | null> {
@@ -313,19 +340,17 @@ export class DataSource extends DataSourceApi<SplunkQuery, SplunkDataSourceOptio
       latest_time: to.toString(),
     }).toString();
 
-    const sid: string = await getBackendSrv()
-      .datasourceRequest({
+    const response: any = await lastValueFrom(
+      (getBackendSrv().fetch<any>({
         method: 'POST',
         url: this.url + '/services/search/jobs',
         headers: {
           'Content-Type': 'application/x-www-form-urlencoded',
         },
         data: data,
-      })
-      .then((response) => {
-        return (response.data as any).sid;
-      });
-
+      }) as any)
+    );
+    const sid: string = (response.data as any).sid;
     return { sid };
   }
 
@@ -338,8 +363,8 @@ export class DataSource extends DataSourceApi<SplunkQuery, SplunkDataSourceOptio
     let results: any[] = [];
 
     while (!isFinished) {
-      await getBackendSrv()
-        .datasourceRequest({
+      const response: any = await lastValueFrom(
+        (getBackendSrv().fetch<any>({
           method: 'GET',
           url: this.url + '/services/search/jobs/' + sid + '/results',
           params: {
@@ -347,19 +372,18 @@ export class DataSource extends DataSourceApi<SplunkQuery, SplunkDataSourceOptio
             offset: offset,
             count: count,
           },
-        })
-        .then((response) => {
-          if ((response.data as any).post_process_count === 0 && (response.data as any).results.length === 0) {
-            isFinished = true;
-          } else {
-            if (isFirst) {
-              isFirst = false;
-              fields = (response.data as any).fields.map((field: any) => field['name']);
-            }
-            offset = offset + count;
-            results = results.concat((response.data as any).results);
-          }
-        });
+        }) as any)
+      );
+      if ((response.data as any).post_process_count === 0 && (response.data as any).results.length === 0) {
+        isFinished = true;
+      } else {
+        if (isFirst) {
+          isFirst = false;
+          fields = (response.data as any).fields.map((field: any) => field['name']);
+        }
+        offset = offset + count;
+        results = results.concat((response.data as any).results);
+      }
 
       offset = offset + count;
     }
@@ -430,19 +454,17 @@ export class DataSource extends DataSourceApi<SplunkQuery, SplunkDataSourceOptio
     }).toString();
 
     try {
-      const sid: string = await getBackendSrv()
-        .datasourceRequest({
+      const response: any = await lastValueFrom(
+        (getBackendSrv().fetch<any>({
           method: 'POST',
           url: this.url + '/services/search/jobs',
           headers: {
             'Content-Type': 'application/x-www-form-urlencoded',
           },
           data: data,
-        })
-        .then((response) => {
-          return (response.data as any).sid;
-        });
-
+        }) as any)
+      );
+      const sid: string = (response.data as any).sid;
       if (sid.length > 0) {
         while (!(await this.doSearchStatusRequest(sid))) {}
         const result = await this.doGetAllResultsRequest(sid);

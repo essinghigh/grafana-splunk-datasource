@@ -1,7 +1,7 @@
 import defaults from 'lodash/defaults';
 
 import React, { PureComponent } from 'react';
-import { CodeEditor, Select, Field, Input, Badge, Tooltip } from '@grafana/ui';
+import { CodeEditor, Combobox, Field, Input, Badge, Tooltip } from '@grafana/ui';
 import { QueryEditorProps, SelectableValue } from '@grafana/data';
 import { css } from '@emotion/css';
 import { DataSource } from './datasource';
@@ -138,13 +138,24 @@ export class QueryEditor extends PureComponent<Props> {
         {/* Header with search type selection */}
         <div className={styles.headerRow}>
           <div className={styles.searchTypeContainer}>
-            <Select
-              options={searchTypeOptions}
-              value={currentSearchType}
-              onChange={this.onSearchTypeChange}
+            <Combobox
+              options={searchTypeOptions.map(opt => ({ 
+                label: opt.label, 
+                value: opt.value || '', 
+                description: opt.description,
+                icon: opt.icon
+              }))}
+              value={currentSearchType?.value || ''}
+              onChange={(val) => {
+                if (val) {
+                  const selected = searchTypeOptions.find(opt => opt.value === val.value);
+                  if (selected) {
+                    this.onSearchTypeChange(selected);
+                  }
+                }
+              }}
               width={24}
               placeholder="Search type"
-              isSearchable={false}
             />
             <Tooltip content={currentSearchType?.description || 'Select search type'}>
               <Badge 

@@ -45,12 +45,6 @@ jobs:
         run: yarn test
         continue-on-error: true
 
-      - name: Semantic Release (dry run)
-        if: github.event_name == 'pull_request' || github.ref != 'refs/heads/main'
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: npx semantic-release --dry-run
-
       - name: Check if merge commit
         id: check_merge
         if: github.ref == 'refs/heads/main' && github.event_name == 'push'
@@ -62,8 +56,8 @@ jobs:
             echo "is_merge=false" >> $GITHUB_OUTPUT
           fi
 
-      - name: Semantic Release (publish)
+      - name: Create Release with Commit Hash
         if: github.ref == 'refs/heads/main' && github.event_name == 'push' && steps.check_merge.outputs.is_merge == 'true'
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: npx semantic-release --no-ci
+        run: ./scripts/create-release.sh

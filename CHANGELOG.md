@@ -1,3 +1,14 @@
+Release 4db7413
+
+Commit: 4db7413f1c62607dac479d58d3f70493731150a6
+
+## [1.0.11](https://github.com/essinghigh/grafana-splunk-datasource/compare/v1.0.10...1.0.11) (2025-06-07)
+
+
+### Bug Fixes
+
+* replace always-release script with commit-hash-release for versioning based on commit hash ([e02aa2a](https://github.com/essinghigh/grafana-splunk-datasource/commit/e02aa2ae2a2862a59eeed53f8c4f56d082db6836))
+
 ## [1.0.10](https://github.com/essinghigh/grafana-splunk-datasource/compare/v1.0.9...v1.0.10) (2025-06-07)
 
 

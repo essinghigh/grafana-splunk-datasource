@@ -227,7 +227,7 @@ export class QueryEditor extends PureComponent<Props> {
               {(!queryText || queryText.trim() === '') && (
                 <div className={styles.placeholder}>
                   {isChainSearch ? 
-                    "stats count by host | head 10" : 
+                    "| stats count by host | head 10" : 
                     "index=main sourcetype=access_* | head 100"
                   }
                 </div>

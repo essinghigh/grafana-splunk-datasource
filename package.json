@@ -54,7 +54,7 @@
     "jest-environment-jsdom": "^30.0.0-beta.3",
     "prettier": "^3.5.3",
     "replace-in-file-webpack-plugin": "^1.0.6",
-    "rxjs": "^7.8.1",
+    "rxjs": "7.8.1",
     "sass": "1.89.1",
     "sass-loader": "16.0.5",
     "style-loader": "4.0.0",

@@ -1,4 +1,6 @@
 import { getBackendSrv, getTemplateSrv } from '@grafana/runtime';
+// Workaround for rxjs type mismatch in Grafana plugin dev: force import from @grafana/data's rxjs
+import { lastValueFrom } from 'rxjs';
 
 import {
   DataQueryRequest,
@@ -251,48 +253,43 @@ export class DataSource extends DataSourceApi<SplunkQuery, SplunkDataSourceOptio
       exec_mode: 'oneshot',
     }).toString();
 
-    return getBackendSrv()
-      .datasourceRequest({
-        method: 'POST',
-        url: this.url + '/services/search/jobs',
-        headers: {
-          'Content-Type': 'application/x-www-form-urlencoded',
-        },
-        data: data,
-      })
-      .then(
-        (response: any) => {
-          return {
-            status: 'success',
-            message: 'Data source is working',
-            title: 'Success',
-          };
-        },
-        (err: any) => {
-          return {
-            status: 'error',
-            message: err.statusText,
-            title: 'Error',
-          };
-        }
+    try {
+      await lastValueFrom(
+        (getBackendSrv().fetch<any>({
+          method: 'POST',
+          url: this.url + '/services/search/jobs',
+          headers: {
+            'Content-Type': 'application/x-www-form-urlencoded',
+          },
+          data: data,
+        }) as any)
       );
+      return {
+        status: 'success',
+        message: 'Data source is working',
+        title: 'Success',
+      };
+    } catch (err: any) {
+      return {
+        status: 'error',
+        message: err.statusText,
+        title: 'Error',
+      };
+    }
   }
 
   async doSearchStatusRequest(sid: string) {
-    const result: boolean = await getBackendSrv()
-      .datasourceRequest({
+    const response: any = await lastValueFrom(
+      (getBackendSrv().fetch<any>({
         method: 'GET',
         url: this.url + '/services/search/jobs/' + sid,
         params: {
           output_mode: 'json',
         },
-      })
-      .then((response) => {
-        let status = (response.data as any).entry[0].content.dispatchState;
-        return status === 'DONE' || status === 'PAUSED' || status === 'FAILED';
-      });
-
-    return result;
+      }) as any)
+    );
+    let status = (response.data as any).entry[0].content.dispatchState;
+    return status === 'DONE' || status === 'PAUSED' || status === 'FAILED';
   }
 
   async doSearchRequest(query: SplunkQuery, options: DataQueryRequest<SplunkQuery>): Promise<{sid: string} | null> {
@@ -313,19 +310,17 @@ export class DataSource extends DataSourceApi<SplunkQuery, SplunkDataSourceOptio
       latest_time: to.toString(),
     }).toString();
 
-    const sid: string = await getBackendSrv()
-      .datasourceRequest({
+    const response: any = await lastValueFrom(
+      (getBackendSrv().fetch<any>({
         method: 'POST',
         url: this.url + '/services/search/jobs',
         headers: {
           'Content-Type': 'application/x-www-form-urlencoded',
         },
         data: data,
-      })
-      .then((response) => {
-        return (response.data as any).sid;
-      });
-
+      }) as any)
+    );
+    const sid: string = (response.data as any).sid;
     return { sid };
   }
 
@@ -338,8 +333,8 @@ export class DataSource extends DataSourceApi<SplunkQuery, SplunkDataSourceOptio
     let results: any[] = [];
 
     while (!isFinished) {
-      await getBackendSrv()
-        .datasourceRequest({
+      const response: any = await lastValueFrom(
+        (getBackendSrv().fetch<any>({
           method: 'GET',
           url: this.url + '/services/search/jobs/' + sid + '/results',
           params: {
@@ -347,19 +342,18 @@ export class DataSource extends DataSourceApi<SplunkQuery, SplunkDataSourceOptio
             offset: offset,
             count: count,
           },
-        })
-        .then((response) => {
-          if ((response.data as any).post_process_count === 0 && (response.data as any).results.length === 0) {
-            isFinished = true;
-          } else {
-            if (isFirst) {
-              isFirst = false;
-              fields = (response.data as any).fields.map((field: any) => field['name']);
-            }
-            offset = offset + count;
-            results = results.concat((response.data as any).results);
-          }
-        });
+        }) as any)
+      );
+      if ((response.data as any).post_process_count === 0 && (response.data as any).results.length === 0) {
+        isFinished = true;
+      } else {
+        if (isFirst) {
+          isFirst = false;
+          fields = (response.data as any).fields.map((field: any) => field['name']);
+        }
+        offset = offset + count;
+        results = results.concat((response.data as any).results);
+      }
 
       offset = offset + count;
     }
@@ -430,19 +424,17 @@ export class DataSource extends DataSourceApi<SplunkQuery, SplunkDataSourceOptio
     }).toString();
 
     try {
-      const sid: string = await getBackendSrv()
-        .datasourceRequest({
+      const response: any = await lastValueFrom(
+        (getBackendSrv().fetch<any>({
           method: 'POST',
           url: this.url + '/services/search/jobs',
           headers: {
             'Content-Type': 'application/x-www-form-urlencoded',
           },
           data: data,
-        })
-        .then((response) => {
-          return (response.data as any).sid;
-        });
-
+        }) as any)
+      );
+      const sid: string = (response.data as any).sid;
       if (sid.length > 0) {
         while (!(await this.doSearchStatusRequest(sid))) {}
         const result = await this.doGetAllResultsRequest(sid);

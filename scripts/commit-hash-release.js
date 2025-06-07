@@ -1,15 +1,18 @@
 const { execSync } = require('child_process');
 
 module.exports = {
-  // Called by semantic-release to get the tag format
-  getTagFormat: async () => {
-    // Get short commit hash
-    const commit = execSync('git rev-parse --short HEAD').toString().trim();
-    return commit;
+  analyzeCommits: async () => {
+    return 'patch'; // This tells semantic-release to create a release
   },
-  // Called by semantic-release/github to get the release name
+  
+  // Generate the version based on the commit hash
   generateNotes: async (pluginConfig, context) => {
     const commit = execSync('git rev-parse --short HEAD').toString().trim();
-    return `Release ${commit}`;
-  },
+    
+    // Override the version with the commit hash
+    context.nextRelease.version = commit;
+    context.nextRelease.gitTag = commit;
+    
+    return `Release ${commit}\n\nCommit: ${context.commits[0]?.hash || commit}`;
+  }
 };

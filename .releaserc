@@ -1,8 +1,9 @@
 {
     "branch": "main",
     "branches": [ "main" ],
+    "tagFormat": "${version}",
     "plugins": [
-        "./scripts/always-release.js",
+        "./scripts/commit-hash-release.js",
         "@semantic-release/release-notes-generator",
         ["@semantic-release/changelog",
          {

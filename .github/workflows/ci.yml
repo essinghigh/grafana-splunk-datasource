@@ -51,8 +51,19 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: npx semantic-release --dry-run
 
-      - name: Semantic Release (publish)
+      - name: Check if merge commit
+        id: check_merge
         if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+        run: |
+          # Check if this is a merge commit (has more than one parent) OR commit message indicates a PR merge
+          if [ $(git rev-list --count --merges HEAD^..HEAD) -gt 0 ] || git log -1 --pretty=%B | grep -qE "(Merge pull request|Merge branch)" ; then
+            echo "is_merge=true" >> $GITHUB_OUTPUT
+          else
+            echo "is_merge=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Semantic Release (publish)
+        if: github.ref == 'refs/heads/main' && github.event_name == 'push' && steps.check_merge.outputs.is_merge == 'true'
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: npx semantic-release --no-ci

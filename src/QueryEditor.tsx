@@ -10,6 +10,14 @@ import { splLanguage } from './language/splMonarch';
 
 type Props = QueryEditorProps<DataSource, SplunkQuery, SplunkDataSourceOptions>;
 
+interface State {
+  editorHeight: number;
+}
+
+interface MonacoEditor {
+  getDomNode: () => HTMLElement | null;
+}
+
 const searchTypeOptions: Array<SelectableValue<string>> = [
   { 
     label: 'Standard', 
@@ -72,9 +80,23 @@ const styles = {
     border-radius: 6px;
     overflow: hidden;
     position: relative;
+    transition: height 0.2s ease-in-out;
     
     .monaco-editor .scroll-decoration {
       box-shadow: none !important;
+    }
+    
+    .monaco-editor .scrollbar {
+      display: none !important;
+    }
+    
+    .monaco-editor .overflow-guard {
+      overflow: hidden !important;
+    }
+    
+    [data-testid="data-testid ReactMonacoEditor editorLazy"] {
+      transition: height 0.2s ease-in-out;
+      overflow: hidden;
     }
   `,
   placeholder: css`
@@ -90,10 +112,88 @@ const styles = {
   `
 };
 
-export class QueryEditor extends PureComponent<Props> {
+export class QueryEditor extends PureComponent<Props, State> {
+  private editorInstance: MonacoEditor | null = null;
+  private heightCheckInterval: NodeJS.Timeout | null = null;
+  private readonly MIN_LINES = 8;
+  private readonly LINE_HEIGHT = 18; // Must match the lineHeight in monacoOptions
+
+  constructor(props: Props) {
+    super(props);
+    this.state = {
+      editorHeight: this.MIN_LINES * this.LINE_HEIGHT, // Start with minimum height
+    };
+  }
+
+  componentWillUnmount() {
+    if (this.heightCheckInterval) {
+      clearInterval(this.heightCheckInterval);
+    }
+  }
+
+  private startHeightPolling = () => {
+    // Clear any existing interval
+    if (this.heightCheckInterval) {
+      clearInterval(this.heightCheckInterval);
+    }
+
+    // Start polling for height changes (less frequent now that we have content listeners)
+    this.heightCheckInterval = setInterval(() => {
+      this.updateEditorHeight();
+    }, 500); // Check every 500ms as backup
+  };
+
+  private updateEditorHeight = () => {
+    if (!this.editorInstance) {
+      return;
+    }
+
+    const domNode = this.editorInstance.getDomNode();
+    if (!domNode) {
+      return;
+    }
+
+    // Get the Monaco editor model to count actual lines
+    const model = (this.editorInstance as any).getModel();
+    if (!model) {
+      return;
+    }
+
+    // Count the actual lines in the content
+    const lineCount = model.getLineCount();
+    
+    // Calculate the required height (minimum 8 lines)
+    const requiredLines = Math.max(lineCount, this.MIN_LINES);
+    // Monaco needs extra space for proper rendering - add ~3-4px per line for internal padding/margins
+    const extraSpacePerLine = 3;
+    const totalLineHeight = this.LINE_HEIGHT + extraSpacePerLine;
+    const newHeight = Math.max(requiredLines * totalLineHeight, this.MIN_LINES * totalLineHeight);
+
+    // Find the Monaco editor container by the correct data-testid value
+    const editorContainer = domNode.closest('[data-testid="data-testid ReactMonacoEditor editorLazy"]') as HTMLElement;
+    if (editorContainer) {
+      editorContainer.style.height = `${newHeight}px`;
+      
+      // Also set the inner Monaco editor to exactly the same height
+      const monacoEditor = domNode.querySelector('.monaco-editor') as HTMLElement;
+      if (monacoEditor) {
+        monacoEditor.style.height = `${newHeight}px`;
+      }
+    }
+
+    // Also update state for consistency (though we're now directly setting DOM height)
+    if (Math.abs(newHeight - this.state.editorHeight) > 5) {
+      this.setState({ editorHeight: newHeight });
+    }
+  };
   onQueryTextChange = (value: string) => {
     const { onChange, query } = this.props;
     onChange({ ...query, queryText: value });
+    
+    // Trigger height update when content changes
+    setTimeout(() => {
+      this.updateEditorHeight();
+    }, 10);
   };
 
   onSearchTypeChange = (selection: SelectableValue<string>) => {
@@ -235,10 +335,40 @@ export class QueryEditor extends PureComponent<Props> {
               <CodeEditor
                 value={queryText || ''}
                 language="spl"
-                height={140}
+                height={this.state.editorHeight}
                 onChange={this.onQueryTextChange}
                 showLineNumbers={true}
                 showMiniMap={false}
+                onEditorDidMount={(editor: MonacoEditor) => {
+                  this.editorInstance = editor;
+                  
+                  setTimeout(() => {
+                    // Set initial height on the Monaco editor container
+                    const domNode = editor.getDomNode();
+                    if (domNode) {
+                      const editorContainer = domNode.closest('[data-testid="data-testid ReactMonacoEditor editorLazy"]') as HTMLElement;
+                      if (editorContainer) {
+                        editorContainer.style.height = `${this.state.editorHeight}px`;
+                      }
+                    }
+                    
+                    // Add content change listener
+                    const model = (editor as any).getModel();
+                    if (model) {
+                      model.onDidChangeContent(() => {
+                        setTimeout(() => {
+                          this.updateEditorHeight();
+                        }, 10);
+                      });
+                    }
+                    
+                    // Do an initial height update
+                    this.updateEditorHeight();
+                    
+                    // Still poll but less frequently as backup
+                    this.startHeightPolling();
+                  }, 100);
+                }}
                 onBeforeEditorMount={(monaco: any) => {
                   // Always register the language and theme, even if already registered
                   if (!monaco.languages.getLanguages().some((lang: any) => lang.id === 'spl')) {
@@ -317,9 +447,11 @@ export class QueryEditor extends PureComponent<Props> {
                   overviewRulerLanes: 0,
                   hideCursorInOverviewRuler: true,
                   scrollbar: {
-                    verticalScrollbarSize: 10,
-                    horizontalScrollbarSize: 10,
-                    useShadows: false
+                    vertical: 'hidden',
+                    horizontal: 'hidden',
+                    useShadows: false,
+                    verticalScrollbarSize: 0,
+                    horizontalScrollbarSize: 0
                   }
                 }}
               />

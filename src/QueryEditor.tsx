@@ -97,6 +97,21 @@ export class QueryEditor extends PureComponent<Props> {
     onChange({ ...query, queryText: value });
   };
 
+  calculateEditorHeight = (text: string): number => {
+    // Count the number of lines in the text
+    const lineCount = text ? (text.match(/\n/g) || []).length + 1 : 1;
+    
+    // Base height for 7 lines (140px from original implementation)
+    const baseHeight = 140;
+    
+    // Line height from Monaco options (18px)
+    const lineHeight = 18;
+    
+    // Calculate dynamic height: minimum of 7 lines or actual line count
+    // Add a small buffer for padding and borders
+    return Math.max(baseHeight, lineHeight * lineCount + 12);
+  };
+
   onSearchTypeChange = (selection: SelectableValue<string>) => {
     const { onChange, query } = this.props;
     const newQuery = { 
@@ -236,15 +251,73 @@ export class QueryEditor extends PureComponent<Props> {
               <CodeEditor
                 value={queryText || ''}
                 language="spl"
-                height={140}
+                height={this.calculateEditorHeight(queryText || '')}
                 onChange={this.onQueryTextChange}
                 showLineNumbers={true}
                 showMiniMap={false}
                 onBeforeEditorMount={(monaco: any) => {
+                  // Always register the language and theme, even if already registered
                   if (!monaco.languages.getLanguages().some((lang: any) => lang.id === 'spl')) {
                     monaco.languages.register({ id: 'spl' });
-                    monaco.languages.setMonarchTokensProvider('spl', splLanguage);
                   }
+                  monaco.languages.setMonarchTokensProvider('spl', splLanguage);
+                  
+                  // Define custom SPL theme matching Splunk's color scheme
+                  monaco.editor.defineTheme('spl-splunk-theme', {
+                    base: 'vs-dark',
+                    inherit: true,
+                    rules: [
+                      // Commands (blue) - matches Splunk's .ace_command (#789EFF)
+                      { token: 'keyword.spl-command', foreground: '789EFF' },
+                      
+                      // Functions (purple) - matches Splunk's .ace_function (#D97ED9)  
+                      { token: 'predefined.spl-agg', foreground: 'D97ED9' },
+                      { token: 'predefined.spl-function', foreground: 'D97ED9' },
+                      
+                      // Arguments/Field assignments (green) - matches Splunk's .ace_argument (#95D640)
+                      { token: 'identifier.spl-field-name', foreground: '95D640' },
+                      
+                      // Modifiers/Clause keywords (orange) - matches Splunk's .ace_modifier (#F7A45B)
+                      { token: 'keyword.spl-clause', foreground: 'F7A45B' },
+                      
+                      // Operators (white/visible) - Splunk doesn't define special color, make them white
+                      { token: 'operator', foreground: 'FFFFFF' },
+                      { token: 'operator.logical', foreground: 'FFFF00' },
+                      
+                      // Strings (quoted content) - matches Splunk's .ace_quoted default color
+                      { token: 'string', foreground: 'CCCCCC' },
+                      
+                      // Numbers (light blue) - make them stand out like Splunk's .ace_number
+                      { token: 'number', foreground: 'ADD8E6' },
+                      
+                      // Delimiters (white) - pipes and brackets
+                      { token: 'delimiter', foreground: 'FFFFFF' },
+                      { token: '@brackets', foreground: 'FFFFFF' },
+                      
+                      // Regular identifiers (default gray) - field names, variables - Splunk default
+                      { token: 'identifier', foreground: 'CCCCCC' },
+                      
+                      // Comments (light gray)
+                      { token: 'comment', foreground: 'AAAAAA' },
+                      
+                      // Fallbacks
+                      { token: 'white', foreground: 'CCCCCC' },
+                    ],
+                    colors: {
+                      'editor.background': '#2b3033' // Match Splunk's background
+                    }
+                  });
+                  
+                  // Force the theme to be applied immediately
+                  monaco.editor.setTheme('spl-splunk-theme');
+                  
+                  // Also force it again after delays to override any Grafana theme
+                  setTimeout(() => {
+                    monaco.editor.setTheme('spl-splunk-theme');
+                  }, 50);
+                  setTimeout(() => {
+                    monaco.editor.setTheme('spl-splunk-theme');
+                  }, 200);
                 }}
                 monacoOptions={{
                   fontSize: 13,

@@ -236,7 +236,7 @@ export class DataSource extends DataSourceApi<SplunkQuery, SplunkDataSourceOptio
       
       // First pass: collect values
       response.results.forEach((result: any) => {
-        if (fieldName === 'Time' || fieldName === '_time') {
+        if (fieldName === '_time') {
           const time = moment(result['_time']).format('YYYY-MM-DDTHH:mm:ssZ');
           values.push(time);
         } else {
@@ -245,7 +245,7 @@ export class DataSource extends DataSourceApi<SplunkQuery, SplunkDataSourceOptio
       });
       
       // Determine field type based on content
-      if (fieldName === 'Time' || fieldName === '_time') {
+      if (fieldName === '_time') {
         fieldType = FieldType.time;
       } else {
         // Check if all non-null values are purely numeric (not mixed text/numbers)
@@ -443,10 +443,6 @@ export class DataSource extends DataSourceApi<SplunkQuery, SplunkDataSourceOptio
       }
 
       offset = offset + count;
-    }
-
-    if (fields.includes('_time')) {
-      fields.push('Time');
     }
 
     const index = fields.indexOf('_raw', 0);

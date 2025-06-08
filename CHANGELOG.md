@@ -1,3 +1,8 @@
+## 88ef071 (2025-06-08)
+
+fix duplication of _time -> Time field (#11)
+
+
 ## 867f1be (2025-06-07)
 
 Remove a bunch of unused stuff (#10)

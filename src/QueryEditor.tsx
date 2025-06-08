@@ -6,6 +6,7 @@ import { QueryEditorProps, SelectableValue } from '@grafana/data';
 import { css } from '@emotion/css';
 import { DataSource } from './datasource';
 import { defaultQuery, SplunkDataSourceOptions, SplunkQuery } from './types';
+import { splLanguage } from './language/splMonarch';
 
 type Props = QueryEditorProps<DataSource, SplunkQuery, SplunkDataSourceOptions>;
 
@@ -234,11 +235,17 @@ export class QueryEditor extends PureComponent<Props> {
               )}
               <CodeEditor
                 value={queryText || ''}
-                language="sql"
+                language="spl"
                 height={140}
                 onChange={this.onQueryTextChange}
                 showLineNumbers={true}
                 showMiniMap={false}
+                onBeforeEditorMount={(monaco: any) => {
+                  if (!monaco.languages.getLanguages().some((lang: any) => lang.id === 'spl')) {
+                    monaco.languages.register({ id: 'spl' });
+                    monaco.languages.setMonarchTokensProvider('spl', splLanguage);
+                  }
+                }}
                 monacoOptions={{
                   fontSize: 13,
                   lineHeight: 18,

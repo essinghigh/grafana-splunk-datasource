@@ -77,6 +77,33 @@ const styles = {
     .monaco-editor {
       min-height: 140px !important;
     }
+    
+    /* Completely disable scrolling within Monaco editor */
+    .monaco-scrollable-element {
+      overflow: visible !important;
+    }
+    
+    .monaco-scrollable-element > .scrollbar {
+      display: none !important;
+    }
+    
+    .monaco-editor .overflow-guard {
+      overflow: visible !important;
+    }
+    
+    .monaco-editor .monaco-scrollable-element {
+      overflow: visible !important;
+    }
+    
+    /* Ensure mouse wheel events pass through */
+    .monaco-editor .view-overlays {
+      pointer-events: none !important;
+    }
+    
+    .monaco-editor .scrollbar {
+      display: none !important;
+      visibility: hidden !important;
+    }
   `,
   placeholder: css`
     position: absolute;
@@ -326,14 +353,21 @@ export class QueryEditor extends PureComponent<Props> {
                   wordWrap: 'on',
                   minimap: { enabled: false },
                   folding: false,
-                  renderLineHighlight: 'line',
+                  renderLineHighlight: 'none',
                   automaticLayout: true,
                   scrollbar: {
-                    vertical: 'auto',
-                    horizontal: 'auto',
-                    verticalScrollbarSize: 8,
-                    horizontalScrollbarSize: 8
-                  }
+                    vertical: 'hidden',
+                    horizontal: 'hidden',
+                    verticalScrollbarSize: 0,
+                    horizontalScrollbarSize: 0,
+                    handleMouseWheel: false
+                  },
+                  overviewRulerLanes: 0,
+                  hideCursorInOverviewRuler: true,
+                  mouseWheelScrollSensitivity: 0,
+                  fastScrollSensitivity: 0,
+                  mouseWheelZoom: false,
+                  disableLayerHinting: true
                 }}
               />
             </div>

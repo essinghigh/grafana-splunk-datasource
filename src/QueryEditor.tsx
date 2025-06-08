@@ -67,42 +67,14 @@ const styles = {
     margin-bottom: 8px;
   `,
   queryField: css`
-    min-height: 140px;
     width: 100%;
     border: 1px solid rgba(204, 204, 220, 0.25);
     border-radius: 6px;
     overflow: hidden;
     position: relative;
     
-    .monaco-editor {
-      min-height: 140px !important;
-    }
-    
-    /* Completely disable scrolling within Monaco editor */
-    .monaco-scrollable-element {
-      overflow: visible !important;
-    }
-    
-    .monaco-scrollable-element > .scrollbar {
-      display: none !important;
-    }
-    
-    .monaco-editor .overflow-guard {
-      overflow: visible !important;
-    }
-    
-    .monaco-editor .monaco-scrollable-element {
-      overflow: visible !important;
-    }
-    
-    /* Ensure mouse wheel events pass through */
-    .monaco-editor .view-overlays {
-      pointer-events: none !important;
-    }
-    
-    .monaco-editor .scrollbar {
-      display: none !important;
-      visibility: hidden !important;
+    .monaco-editor .scroll-decoration {
+      box-shadow: none !important;
     }
   `,
   placeholder: css`
@@ -122,21 +94,6 @@ export class QueryEditor extends PureComponent<Props> {
   onQueryTextChange = (value: string) => {
     const { onChange, query } = this.props;
     onChange({ ...query, queryText: value });
-  };
-
-  calculateEditorHeight = (text: string): number => {
-    // Count the number of lines in the text
-    const lineCount = text ? (text.match(/\n/g) || []).length + 1 : 1;
-    
-    // Base height for 7 lines (140px from original implementation)
-    const baseHeight = 140;
-    
-    // Line height from Monaco options (18px)
-    const lineHeight = 18;
-    
-    // Calculate dynamic height: minimum of 7 lines or actual line count
-    // Add a small buffer for padding and borders
-    return Math.max(baseHeight, lineHeight * lineCount + 12);
   };
 
   onSearchTypeChange = (selection: SelectableValue<string>) => {
@@ -278,7 +235,7 @@ export class QueryEditor extends PureComponent<Props> {
               <CodeEditor
                 value={queryText || ''}
                 language="spl"
-                height={this.calculateEditorHeight(queryText || '')}
+                height={140}
                 onChange={this.onQueryTextChange}
                 showLineNumbers={true}
                 showMiniMap={false}
@@ -351,23 +308,19 @@ export class QueryEditor extends PureComponent<Props> {
                   lineHeight: 18,
                   scrollBeyondLastLine: false,
                   wordWrap: 'on',
+                  wordWrapColumn: 80,
+                  wrappingIndent: 'indent',
                   minimap: { enabled: false },
                   folding: false,
                   renderLineHighlight: 'none',
                   automaticLayout: true,
-                  scrollbar: {
-                    vertical: 'hidden',
-                    horizontal: 'hidden',
-                    verticalScrollbarSize: 0,
-                    horizontalScrollbarSize: 0,
-                    handleMouseWheel: false
-                  },
                   overviewRulerLanes: 0,
                   hideCursorInOverviewRuler: true,
-                  mouseWheelScrollSensitivity: 0,
-                  fastScrollSensitivity: 0,
-                  mouseWheelZoom: false,
-                  disableLayerHinting: true
+                  scrollbar: {
+                    verticalScrollbarSize: 10,
+                    horizontalScrollbarSize: 10,
+                    useShadows: false
+                  }
                 }}
               />
             </div>

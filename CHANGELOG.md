@@ -1,3 +1,10 @@
+## e2298b3 (2025-06-08)
+
+feat: Full SPL Monarch tokenizer (#13)
+
+Coauthored by NOBODY. Jules did NOTHING.
+
+
 ## 1f14242 (2025-06-08)
 
 Basic monaco highlighting (#12)

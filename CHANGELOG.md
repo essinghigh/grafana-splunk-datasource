@@ -1,3 +1,8 @@
+## 1f14242 (2025-06-08)
+
+Basic monaco highlighting (#12)
+
+
 ## 88ef071 (2025-06-08)
 
 fix duplication of _time -> Time field (#11)

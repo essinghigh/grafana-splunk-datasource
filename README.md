@@ -25,7 +25,7 @@ allows you to run SPL queries on Splunk via Grafana.
 
 1. Download the latest release of the plugin
 
-2. Unzip it in your Grafana's installation plugin directory (`/var/lib/grafana/plugins`)
+2. Extract it in your Grafana's installation plugin directory (`/var/lib/grafana/plugins`)
 
     ```bash
     tar -zxf essinghigh-splunk-datasource-XXXXX.tar.gz -C YOUR_PLUGIN_DIR

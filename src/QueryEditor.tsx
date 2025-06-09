@@ -10,6 +10,14 @@ import { splLanguage } from './language/splMonarch';
 
 type Props = QueryEditorProps<DataSource, SplunkQuery, SplunkDataSourceOptions>;
 
+interface State {
+  editorHeight: number;
+}
+
+interface MonacoEditor {
+  getDomNode: () => HTMLElement | null;
+}
+
 const searchTypeOptions: Array<SelectableValue<string>> = [
   { 
     label: 'Standard', 
@@ -36,6 +44,7 @@ const styles = {
     display: flex;
     flex-direction: column;
     gap: 16px;
+    margin-left: -24px;
   `,
   headerRow: css`
     display: flex;
@@ -67,42 +76,30 @@ const styles = {
     margin-bottom: 8px;
   `,
   queryField: css`
-    min-height: 140px;
     width: 100%;
     border: 1px solid rgba(204, 204, 220, 0.25);
     border-radius: 6px;
     overflow: hidden;
     position: relative;
     
-    .monaco-editor {
-      min-height: 140px !important;
-    }
-    
-    /* Completely disable scrolling within Monaco editor */
-    .monaco-scrollable-element {
-      overflow: visible !important;
-    }
-    
-    .monaco-scrollable-element > .scrollbar {
-      display: none !important;
-    }
-    
-    .monaco-editor .overflow-guard {
-      overflow: visible !important;
-    }
-    
-    .monaco-editor .monaco-scrollable-element {
-      overflow: visible !important;
-    }
-    
-    /* Ensure mouse wheel events pass through */
-    .monaco-editor .view-overlays {
-      pointer-events: none !important;
+    .monaco-editor .scroll-decoration {
+      box-shadow: none !important;
     }
     
     .monaco-editor .scrollbar {
       display: none !important;
-      visibility: hidden !important;
+    }
+    
+    .monaco-editor .overflow-guard {
+      overflow: hidden !important;
+    }
+    
+    .monaco-editor .monaco-scrollable-element {
+      overflow: hidden !important;
+    }
+    
+    [data-testid="data-testid ReactMonacoEditor editorLazy"] {
+      overflow: hidden !important;
     }
   `,
   placeholder: css`
@@ -118,25 +115,90 @@ const styles = {
   `
 };
 
-export class QueryEditor extends PureComponent<Props> {
+export class QueryEditor extends PureComponent<Props, State> {
+  private editorInstance: MonacoEditor | null = null;
+  private heightCheckInterval: NodeJS.Timeout | null = null;
+  private readonly MIN_LINES = 8;
+  private readonly LINE_HEIGHT = 18;
+
+  constructor(props: Props) {
+    super(props);
+    this.state = {
+      editorHeight: this.MIN_LINES * this.LINE_HEIGHT,
+    };
+  }
+
+  componentWillUnmount() {
+    if (this.heightCheckInterval) {
+      clearInterval(this.heightCheckInterval);
+    }
+  }
+
+  private startHeightPolling = () => {
+    if (this.heightCheckInterval) {
+      clearInterval(this.heightCheckInterval);
+    }
+    this.heightCheckInterval = setInterval(() => {
+      this.updateEditorHeight({ preservePosition: true });
+    }, 500);
+  };
+
+  private updateEditorHeight = (options: { isBottomExpansion?: boolean, preservePosition?: boolean } = {}) => {
+    if (!this.editorInstance) {
+      return;
+    }
+
+    const domNode = this.editorInstance.getDomNode();
+    if (!domNode) {
+      return;
+    }
+
+    const model = (this.editorInstance as any).getModel();
+    if (!model) {
+      return;
+    }
+
+    const currentScrollTop = (this.editorInstance as any).getScrollTop();
+    const lineCount = model.getLineCount();
+    const requiredLines = Math.max(lineCount, this.MIN_LINES);
+    let newHeight;
+    const contentHeight = (this.editorInstance as any).getContentHeight?.();
+    if (contentHeight && contentHeight > 0) {
+      newHeight = Math.max(contentHeight, this.MIN_LINES * this.LINE_HEIGHT);
+    } else {
+      newHeight = requiredLines * this.LINE_HEIGHT;
+    }
+
+    const editorContainer = domNode.closest('[data-testid="data-testid ReactMonacoEditor editorLazy"]') as HTMLElement;
+    if (editorContainer) {
+      const oldHeight = parseInt(editorContainer.style.height || '0', 10);
+      const heightDiff = newHeight - oldHeight;
+      editorContainer.style.height = `${newHeight}px`;
+      requestAnimationFrame(() => {
+        if (options.isBottomExpansion && heightDiff > 0) {
+          (this.editorInstance as any).setScrollTop(Math.max(0, currentScrollTop));
+        } else if (options.preservePosition) {
+          (this.editorInstance as any).setScrollTop(currentScrollTop);
+        } else {
+          if (currentScrollTop < 10 && newHeight <= this.MIN_LINES * this.LINE_HEIGHT * 1.5) {
+            (this.editorInstance as any).setScrollTop(0);
+          } else {
+            (this.editorInstance as any).setScrollTop(currentScrollTop);
+          }
+        }
+      });
+    }
+
+    if (Math.abs(newHeight - this.state.editorHeight) > 5) {
+      this.setState({ editorHeight: newHeight });
+    }
+  };
   onQueryTextChange = (value: string) => {
     const { onChange, query } = this.props;
     onChange({ ...query, queryText: value });
-  };
-
-  calculateEditorHeight = (text: string): number => {
-    // Count the number of lines in the text
-    const lineCount = text ? (text.match(/\n/g) || []).length + 1 : 1;
-    
-    // Base height for 7 lines (140px from original implementation)
-    const baseHeight = 140;
-    
-    // Line height from Monaco options (18px)
-    const lineHeight = 18;
-    
-    // Calculate dynamic height: minimum of 7 lines or actual line count
-    // Add a small buffer for padding and borders
-    return Math.max(baseHeight, lineHeight * lineCount + 12);
+    setTimeout(() => {
+      this.updateEditorHeight({ preservePosition: true });
+    }, 10);
   };
 
   onSearchTypeChange = (selection: SelectableValue<string>) => {
@@ -145,17 +207,12 @@ export class QueryEditor extends PureComponent<Props> {
       ...query, 
       searchType: selection.value as 'standard' | 'base' | 'chain'
     };
-    
-    // Clear baseSearchRefId when switching to standard or base search
     if (selection.value === 'standard' || selection.value === 'base') {
       delete newQuery.baseSearchRefId;
     }
-    
-    // Clear searchId when switching to standard or chain search
     if (selection.value === 'standard' || selection.value === 'chain') {
       delete newQuery.searchId;
     }
-    
     onChange(newQuery);
   };
 
@@ -178,7 +235,6 @@ export class QueryEditor extends PureComponent<Props> {
 
     return (
       <div className={styles.container}>
-        {/* Header with search type selection */}
         <div className={styles.headerRow}>
           <div className={styles.searchTypeContainer}>
             <Combobox
@@ -210,7 +266,6 @@ export class QueryEditor extends PureComponent<Props> {
           </div>
         </div>
 
-        {/* Base Search ID field */}
         {isBaseSearch && (
           <div className={styles.conditionalField}>
             <Field 
@@ -227,7 +282,6 @@ export class QueryEditor extends PureComponent<Props> {
           </div>
         )}
 
-        {/* Chain Search Reference field */}
         {isChainSearch && (
           <div className={styles.conditionalField}>
             <Field 
@@ -244,7 +298,6 @@ export class QueryEditor extends PureComponent<Props> {
           </div>
         )}
 
-        {/* Main Query Field */}
         <div className={styles.queryContainer}>
           <Field 
             label={
@@ -278,96 +331,109 @@ export class QueryEditor extends PureComponent<Props> {
               <CodeEditor
                 value={queryText || ''}
                 language="spl"
-                height={this.calculateEditorHeight(queryText || '')}
+                height={this.state.editorHeight}
                 onChange={this.onQueryTextChange}
                 showLineNumbers={true}
                 showMiniMap={false}
+                onEditorDidMount={(editor: MonacoEditor) => {
+                  this.editorInstance = editor;
+                  setTimeout(() => {
+                    const domNode = editor.getDomNode();
+                    if (domNode) {
+                      const editorContainer = domNode.closest('[data-testid="data-testid ReactMonacoEditor editorLazy"]') as HTMLElement;
+                      if (editorContainer) {
+                        editorContainer.style.height = `${this.state.editorHeight}px`;
+                      }
+                    }
+                    const model = (editor as any).getModel();
+                    if (model) {
+                      model.onDidChangeContent((e: any) => {
+                        const currentPosition = (editor as any).getPosition();
+                        const lineCount = model.getLineCount();
+                        let isBottomExpansion = false;
+                        if (e.changes && e.changes.length > 0) {
+                            const hasNewlineAddition = e.changes.some((change: any) => 
+                                change.text && change.text.includes('\n') && change.rangeLength === 0
+                            );
+                            if (hasNewlineAddition && currentPosition) {
+                                const cursorLine = currentPosition.lineNumber;
+                                const preChangeLineCount = lineCount - 1;
+                                if (cursorLine === preChangeLineCount) {
+                                    isBottomExpansion = true;
+                                } else if (cursorLine === preChangeLineCount - 1) {
+                                    const lastLineContent = model.getLineContent(lineCount);
+                                    if (!lastLineContent || lastLineContent.trim() === '') {
+                                        isBottomExpansion = true;
+                                    }
+                                }
+                            }
+                        }
+                        if (isBottomExpansion) {
+                          this.updateEditorHeight({ isBottomExpansion: true });
+                        } else {
+                          setTimeout(() => {
+                            this.updateEditorHeight({ preservePosition: true });
+                          }, 10);
+                        }
+                      });
+                    }
+                    this.updateEditorHeight();
+                    this.startHeightPolling();
+                  }, 100);
+                }}
                 onBeforeEditorMount={(monaco: any) => {
-                  // Always register the language and theme, even if already registered
                   if (!monaco.languages.getLanguages().some((lang: any) => lang.id === 'spl')) {
                     monaco.languages.register({ id: 'spl' });
                   }
                   monaco.languages.setMonarchTokensProvider('spl', splLanguage);
-                  
-                  // Define custom SPL theme matching Splunk's color scheme
                   monaco.editor.defineTheme('spl-splunk-theme', {
                     base: 'vs-dark',
                     inherit: true,
                     rules: [
-                      // Commands (blue) - matches Splunk's .ace_command (#789EFF)
                       { token: 'keyword.spl-command', foreground: '789EFF' },
-                      
-                      // Functions (purple) - matches Splunk's .ace_function (#D97ED9)  
                       { token: 'predefined.spl-agg', foreground: 'D97ED9' },
                       { token: 'predefined.spl-function', foreground: 'D97ED9' },
-                      
-                      // Arguments/Field assignments (green) - matches Splunk's .ace_argument (#95D640)
                       { token: 'identifier.spl-field-name', foreground: '95D640' },
-                      
-                      // Modifiers/Clause keywords (orange) - matches Splunk's .ace_modifier (#F7A45B)
                       { token: 'keyword.spl-clause', foreground: 'F7A45B' },
-                      
-                      // Operators (white/visible) - Splunk doesn't define special color, make them white
                       { token: 'operator', foreground: 'FFFFFF' },
                       { token: 'operator.logical', foreground: 'FFFF00' },
-                      
-                      // Strings (quoted content) - matches Splunk's .ace_quoted default color
                       { token: 'string', foreground: 'CCCCCC' },
-                      
-                      // Numbers (light blue) - make them stand out like Splunk's .ace_number
                       { token: 'number', foreground: 'ADD8E6' },
-                      
-                      // Delimiters (white) - pipes and brackets
                       { token: 'delimiter', foreground: 'FFFFFF' },
                       { token: '@brackets', foreground: 'FFFFFF' },
-                      
-                      // Regular identifiers (default gray) - field names, variables - Splunk default
                       { token: 'identifier', foreground: 'CCCCCC' },
-                      
-                      // Comments (light gray)
                       { token: 'comment', foreground: 'AAAAAA' },
-                      
-                      // Fallbacks
                       { token: 'white', foreground: 'CCCCCC' },
                     ],
                     colors: {
-                      'editor.background': '#2b3033' // Match Splunk's background
+                      'editor.background': '#2b3033'
                     }
                   });
-                  
-                  // Force the theme to be applied immediately
                   monaco.editor.setTheme('spl-splunk-theme');
-                  
-                  // Also force it again after delays to override any Grafana theme
                   setTimeout(() => {
                     monaco.editor.setTheme('spl-splunk-theme');
-                  }, 50);
-                  setTimeout(() => {
-                    monaco.editor.setTheme('spl-splunk-theme');
-                  }, 200);
+                  }, 100);
                 }}
                 monacoOptions={{
                   fontSize: 13,
                   lineHeight: 18,
                   scrollBeyondLastLine: false,
                   wordWrap: 'on',
+                  wordWrapColumn: 80,
+                  wrappingIndent: 'indent',
                   minimap: { enabled: false },
                   folding: false,
                   renderLineHighlight: 'none',
                   automaticLayout: true,
+                  overviewRulerLanes: 0,
+                  hideCursorInOverviewRuler: true,
                   scrollbar: {
                     vertical: 'hidden',
                     horizontal: 'hidden',
+                    useShadows: false,
                     verticalScrollbarSize: 0,
-                    horizontalScrollbarSize: 0,
-                    handleMouseWheel: false
-                  },
-                  overviewRulerLanes: 0,
-                  hideCursorInOverviewRuler: true,
-                  mouseWheelScrollSensitivity: 0,
-                  fastScrollSensitivity: 0,
-                  mouseWheelZoom: false,
-                  disableLayerHinting: true
+                    horizontalScrollbarSize: 0
+                  }
                 }}
               />
             </div>

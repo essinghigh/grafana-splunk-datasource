@@ -28,7 +28,7 @@ export const splLanguage = {
       [/(eval)\b/i, { token: 'keyword.spl-command', next: '@evalContext' }],
       [/(table|fields)\b/i, { token: 'keyword.spl-command', next: '@fieldListContext' }],
       [/(search|where)\b/i, { token: 'keyword.spl-command', next: '@searchContext' }],
-      [/(makeresults|rename|rex|spath|dedup|fillnull|lookup|join|transaction|bin|bucket|append|inputlookup|outputlookup|tstats|pivot|collect|delete|inputcsv|outputcsv|map|multisearch|return|sendemail|set|setfields|transpose|xyseries|sort|head|top)\b/i, { token: 'keyword.spl-command', next: '@generalContext' }],
+      [/(makeresults|rename|rex|spath|dedup|fillnull|lookup|join|transaction|bin|bucket|append|inputlookup|outputlookup|tstats|pivot|collect|delete|iplocation|inputcsv|outputcsv|map|multisearch|return|sendemail|set|setfields|transpose|xyseries|sort|head|top)\b/i, { token: 'keyword.spl-command', next: '@generalContext' }],
 
       // Default fallback
       [/.*/, { token: 'identifier', next: '@generalContext' }],

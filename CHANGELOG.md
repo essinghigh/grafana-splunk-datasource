@@ -1,3 +1,8 @@
+## 0b0c3bc (2025-06-09)
+
+fix: Editor dynamic resizing, editor width (#14)
+
+
 ## e2298b3 (2025-06-08)
 
 feat: Full SPL Monarch tokenizer (#13)

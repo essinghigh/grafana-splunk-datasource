@@ -25,7 +25,7 @@ export const splLanguage = {
   splClauses: [
     'as', 'AS', 'by', 'BY', 'over', 'OVER', 'in', 'IN', 'where', 'WHERE', 
     'output', 'OUTPUT', 'outputnew', 'OUTPUTNEW', 'on', 'ON', 'using', 'USING', 
-    'with', 'WITH', 'for', 'FOR', 'against', 'AGAINST',
+    'with', 'WITH', 'for', 'FOR', 'against', 'AGAINST', 'sortby', 'SORTBY',
     'and', 'AND', 'or', 'OR', 'not', 'NOT', 'xor', 'XOR'
   ],
 
@@ -68,6 +68,7 @@ export const splLanguage = {
           '^(lookup|inputlookup)$': { token: 'keyword.spl-command', next: '@lookupContext' },
           '^(rename)$': { token: 'keyword.spl-command', next: '@renameContext' },
           '^(fields|table)$': { token: 'keyword.spl-command', next: '@fieldListContext' },
+          '^(search)$': { token: 'keyword.spl-command', next: '@searchCommandContext' },
           '@splCommands': { token: 'keyword.spl-command', next: '@generalContext' },
           '@default': { token: 'identifier', next: '@generalContext' }
         }
@@ -77,6 +78,8 @@ export const splLanguage = {
     // Context for initial search (before the first pipe).
     searchContext: [
       [/\s+/, 'white'],
+      // Handle `argument=value` pairs for search arguments like earliest, latest
+      [/\b(earliest|latest)\s*(=)/, ['identifier.spl-field-name', 'operator']],
       // Field names are plain identifiers, not green arguments.
       [/[a-zA-Z_][\w\-\.]*/, {
         cases: {
@@ -107,6 +110,22 @@ export const splLanguage = {
           '@splClauses': 'keyword.spl-clause',
           '@splAggFunctions': 'predefined.spl-agg',
           '@default': 'identifier' // Field names
+        }
+      }],
+      { include: '@commonTokens' }
+    ],
+
+    // Context for explicit `search` command after a pipe.
+    searchCommandContext: [
+      [/\s+/, 'white'],
+      [/\|/, { token: 'delimiter', next: '@command' }],
+      // Handle `argument=value` pairs for search arguments like earliest, latest
+      [/\b(earliest|latest)\s*(=)/, ['identifier.spl-field-name', 'operator']],
+      // Field names and clauses.
+      [/[a-zA-Z_][\w\-\.]*/, {
+        cases: {
+          '@splClauses': 'keyword.spl-clause',
+          '@default': 'identifier'
         }
       }],
       { include: '@commonTokens' }

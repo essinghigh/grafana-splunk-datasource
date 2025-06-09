@@ -79,7 +79,7 @@ export const splLanguage = {
     searchContext: [
       [/\s+/, 'white'],
       // Handle `argument=value` pairs for search arguments like earliest, latest
-      [/\b(earliest|latest)\s*(=)/, ['identifier.spl-field-name', 'operator']],
+      [/\b(earliest|latest)(=)/, ['identifier.spl-field-name', 'operator']],
       // Field names are plain identifiers, not green arguments.
       [/[a-zA-Z_][\w\-\.]*/, {
         cases: {
@@ -120,7 +120,7 @@ export const splLanguage = {
       [/\s+/, 'white'],
       [/\|/, { token: 'delimiter', next: '@command' }],
       // Handle `argument=value` pairs for search arguments like earliest, latest
-      [/\b(earliest|latest)\s*(=)/, ['identifier.spl-field-name', 'operator']],
+      [/\b(earliest|latest)(=)/, ['identifier.spl-field-name', 'operator']],
       // Field names and clauses.
       [/[a-zA-Z_][\w\-\.]*/, {
         cases: {
@@ -181,11 +181,11 @@ export const splLanguage = {
       { include: '@commonTokens' }
     ],
 
-    // A temporary state to handle the green field name after an "AS" clause.
+    // A temporary state to handle the field name after an "AS" clause.
     asClause: [
       [/\s+/, 'white'],
-      // This token is the new field name (green). Then pop back.
-      [/[a-zA-Z_][\w\-\.]+/, { token: 'identifier.spl-field-name', next: '@pop' }],
+      // This token is the new field name (regular identifier). Then pop back.
+      [/[a-zA-Z_][\w\-\.]+/, { token: 'identifier', next: '@pop' }],
       // If no field name, pop back to be safe.
       [/./, { token: '', next: '@pop' }]
     ],
@@ -204,7 +204,7 @@ export const splLanguage = {
       [/\s+/, 'white'],
       [/\|/, { token: 'delimiter', next: '@command' }],
       // Handle `argument=value` pairs, making the argument name green.
-      [/([a-zA-Z_][\w\-]*)\s*(=)/, ['identifier.spl-field-name', 'operator']],
+      [/([a-zA-Z_][\w\-]*)(=)/, ['identifier.spl-field-name', 'operator']],
       // Handle clauses like `BY`.
       [/[a-zA-Z_]\w*/, {
         cases: {

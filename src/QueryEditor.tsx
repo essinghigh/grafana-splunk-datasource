@@ -189,8 +189,7 @@ export class QueryEditor extends PureComponent<Props, State> {
       return;
     }
 
-    // Store current cursor position and scroll state
-    const currentPosition = (this.editorInstance as any).getPosition();
+    // Store current scroll state
     const currentScrollTop = (this.editorInstance as any).getScrollTop();
 
     // Count the actual lines in the content
@@ -222,23 +221,12 @@ export class QueryEditor extends PureComponent<Props, State> {
       const heightDiff = newHeight - oldHeight;
       const monacoEditor = domNode.querySelector('.monaco-editor') as HTMLElement;
       
-      // Handle transitions based on the type of change
-      if (options.isBottomExpansion && heightDiff > 0) {
-        // For bottom expansions, use immediate transition to prevent visual jump
-        editorContainer.classList.add('immediate-transition');
-        editorContainer.classList.remove('smooth-transition');
-        if (monacoEditor) {
-          monacoEditor.classList.add('immediate-transition');
-          monacoEditor.classList.remove('smooth-transition');
-        }
-      } else {
-        // For other changes, use smooth transition
-        editorContainer.classList.add('smooth-transition');
-        editorContainer.classList.remove('immediate-transition');
-        if (monacoEditor) {
-          monacoEditor.classList.add('smooth-transition');
-          monacoEditor.classList.remove('immediate-transition');
-        }
+      // Ensure immediate transition for all height changes
+      editorContainer.classList.add('immediate-transition');
+      editorContainer.classList.remove('smooth-transition');
+      if (monacoEditor) {
+        monacoEditor.classList.add('immediate-transition');
+        monacoEditor.classList.remove('smooth-transition');
       }
       
       // Set the new height
@@ -255,23 +243,15 @@ export class QueryEditor extends PureComponent<Props, State> {
           (this.editorInstance as any).setScrollTop(Math.max(0, currentScrollTop));
           
           // Ensure cursor is visible without scrolling beyond what's needed
-          if (currentPosition) {
-            try {
-              (this.editorInstance as any).revealPosition(currentPosition, 0); // 0 = Immediate, no animation
-            } catch (e) {
-              // Fallback if revealPosition fails
-            }
-          }
+          // if (currentPosition) {
+          //   try {
+          //     (this.editorInstance as any).revealPosition(currentPosition, 0); // 0 = Immediate, no animation
+          //   } catch (e) {
+          //     // Fallback if revealPosition fails
+          //   }
+          // }
           
-          // Restore smooth transitions after a brief moment
-          setTimeout(() => {
-            editorContainer.classList.add('smooth-transition');
-            editorContainer.classList.remove('immediate-transition');
-            if (monacoEditor) {
-              monacoEditor.classList.add('smooth-transition');
-              monacoEditor.classList.remove('immediate-transition');
-            }
-          }, 100);
+          // Smooth transitions are no longer used. The setTimeout for restoring them is removed.
         } else if (options.preservePosition) {
           // Maintain exact scroll position for other changes
           (this.editorInstance as any).setScrollTop(currentScrollTop);
@@ -467,17 +447,47 @@ export class QueryEditor extends PureComponent<Props, State> {
                         const lineCount = model.getLineCount();
                         
                         // Check if this change involved adding content at or near the bottom
+                        const postChangeLineCount = lineCount;   // Line count after change
+
                         let isBottomExpansion = false;
-                        if (currentPosition && e.changes && e.changes.length > 0) {
-                          // Check if the cursor is at the last line and we're adding content
-                          const isAtLastLine = currentPosition.lineNumber >= lineCount;
-                          const hasNewlineInChanges = e.changes.some((change: any) => 
-                            change.text && change.text.includes('\n')
-                          );
-                          
-                          isBottomExpansion = isAtLastLine && hasNewlineInChanges;
+
+                        // Determine if the primary change was a pure newline addition.
+                        let isPureNewlineAddition = false;
+                        if (e.changes && e.changes.length > 0) {
+                            // Consider it a pure newline addition if at least one change involves adding a newline
+                            // and that change is an insertion (rangeLength is 0).
+                            // This is a simplified check; more complex changes might need more robust parsing.
+                            isPureNewlineAddition = e.changes.some((change: any) => 
+                                change.text && change.text.includes('\n') && change.rangeLength === 0
+                            );
                         }
-                        
+
+                        if (isPureNewlineAddition) {
+                            const cursorLine = currentPosition.lineNumber; 
+                            
+                            // Assuming single newline added for preChangeLineCount calculation for simplicity in this targeted fix.
+                            const preChangeLineCount = postChangeLineCount - 1; 
+
+                            // Condition A: Cursor was on the original last line.
+                            if (cursorLine === preChangeLineCount) {
+                                isBottomExpansion = true;
+                            } 
+                            // Condition B: Cursor was on the original second-to-last line, 
+                            // AND the original last line was blank.
+                            else if (cursorLine === preChangeLineCount - 1) {
+                                // If cursor was on original second-to-last, and a line was inserted there,
+                                // the content of the original last line is now at the *new* last line position.
+                                if (preChangeLineCount >= 1) { // Ensures there was an original last line.
+                                                             // (i.e. original doc had at least 1 line for cursorLine=0, preChangeLineCount=1;
+                                                             // or original doc had at least 2 lines for cursorLine=1, preChangeLineCount=2)
+                                    const contentOfOriginalLastLine = model.getLineContent(postChangeLineCount); // Read from new model's last line
+                                    if (!contentOfOriginalLastLine || contentOfOriginalLastLine.trim() === '') {
+                                        isBottomExpansion = true;
+                                    }
+                                }
+                            }
+                        }
+
                         if (isBottomExpansion) {
                           // For bottom expansions, handle immediately with special options
                           this.updateEditorHeight({ isBottomExpansion: true });

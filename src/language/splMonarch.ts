@@ -36,7 +36,7 @@ export const splLanguage = {
   // https://help.splunk.com/en/splunk-cloud-platform/search/spl2-search-reference/statistical-and-charting-functions/aggregate-functions
   splAggFunctions: [
     'avg', 'count', 'c', 'distinct_count', 'dc', 'estdc', 'estdc_error', 'exactperc',
-    'max', 'mean', 'median', 'min', 'mode', 'perc', 'range', 'stdev', 'stdevp', 'sum',
+    'max', 'mean', 'median', 'min', 'mode', 'p', 'perc', 'range', 'stdev', 'stdevp', 'sum',
     'sumsq', 'upperperc', 'var', 'varp',
   ],
 
@@ -139,6 +139,8 @@ export const splLanguage = {
       [/\[/, { token: '@brackets', next: '@command' }],
       // "AS" clause -> switch to color the new field name green.
       [/\b(as)\b/i, { token: 'keyword.spl-clause', next: '@asClause' }],
+      // Special case: p/perc followed by digits (e.g., p95, perc99) as a single agg function (pink)
+      [/(p|perc)\d+/i, 'predefined.spl-agg'],
       // Functions like `sum(field)`.
       [/(\w+)(?=\s*\()/i, {
         cases: {

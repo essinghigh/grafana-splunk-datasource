@@ -21,20 +21,17 @@ allows you to run SPL queries on Splunk via Grafana.
 
 ![image](https://github.com/user-attachments/assets/e7c7ff5e-be86-4bf3-9782-933bb3a846ef)
 
-### Primary Features
-* Support for query variables
-* Support for Base/Chain searches
-
 ## Installation
 
 1. Download the latest release of the plugin
 
-2. Unzip it in your Grafana's installation plugin directory (eg. `/var/lib/grafana/plugins`)
+2. Unzip it in your Grafana's installation plugin directory (`/var/lib/grafana/plugins`)
 
     ```bash
     tar -zxf essinghigh-splunk-datasource-XXXXX.tar.gz -C YOUR_PLUGIN_DIR
     ```
-3. As of Grafana v8+ you must explicitly define any unsigned plugins that you wish to allow / load (eg edit:  `/etc/grafana/grafana.ini`
+    
+3. As of Grafana v8+ unsigned plugins must be explicitly allowed within Grafana's configuration (`/etc/grafana/grafana.ini`)
 
     ```allow_loading_unsigned_plugins = essinghigh-splunk-datasource ```
  
@@ -43,19 +40,19 @@ allows you to run SPL queries on Splunk via Grafana.
 The plugin can be configured
 by an administrator from Grafana's UI `Configuration --> Datasources --> Add data source`. 
 
-NB: By default Splunk's REST API is only available via HTTPS (even if you allow HTTP access on a differen port), ie it is usually at: https://<ServerIP>:8089
+> **NOTE:** By default Splunk's REST API is only available via HTTPS (even if you allow HTTP access on a differen port), usually on: https://splunk:8089
 
-(example configuration via the Grafana web-GUI (in Grafana 11.6.1):
+(Example configuration via the Grafana WebUI (Grafana 11.6.1):
 
 <img src="https://github.com/user-attachments/assets/a5790b24-e1d8-4ed7-8f52-fa6e2df0d511" width="50%" />
 
 ## Testing in Grafana:
 
-### Using a standard Splunk Query as a Grafana Query (and showing splunk results):`
-![image](https://github.com/user-attachments/assets/008c243f-1881-4747-a345-f81323f8be22)
+### Standard SPL Query:
+![image](https://github.com/user-attachments/assets/441535d8-5767-4d45-a150-43c3afd86bb0)
 
-### Using base / chain searches
-![image](https://github.com/user-attachments/assets/87924b9d-a6f8-4a00-9b6c-3a2444f88615)
-![image](https://github.com/user-attachments/assets/c3e72369-606a-41b3-a06c-691ff3934c2d)
-![image](https://github.com/user-attachments/assets/44b807e7-09c0-4caa-9aa4-4d9dfc2a722d)
 
+### Using Base / Chain Searches:
+![image](https://github.com/user-attachments/assets/a23c5696-ad2c-4504-89e3-119d35ca83c3)
+![image](https://github.com/user-attachments/assets/199b07a5-c6ab-4295-b50b-39fa15314777)
+![image](https://github.com/user-attachments/assets/f9be5d49-a6e7-4595-819e-862623c2909e)

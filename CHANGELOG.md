@@ -1,3 +1,8 @@
+## 8b7c413 (2025-06-09)
+
+Merge branch force release (#14)
+
+
 ## 0b0c3bc (2025-06-09)
 
 fix: Editor dynamic resizing, editor width (#14)

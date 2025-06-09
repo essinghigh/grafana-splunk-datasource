@@ -1,9 +1,6 @@
 // src/language/splMonarch.ts
 // Context-aware Monarch tokenizer for Splunk SPL
-// 
-// Key insight: Aggregation functions like 'count' should only be highlighted as functions
-// in the appropriate context (e.g., after | stats), not when used as field names 
-// (e.g., in | table count where 'count' refers to a field created by a previous stats command)
+
 export const splLanguage = {
   defaultToken: 'source.spl',
   tokenizer: {
@@ -23,14 +20,16 @@ export const splLanguage = {
       // Whitespace
       [/\s+/, 'white'],
 
-      // SPL commands (blue) - transition to appropriate context
+      // First word after pipe is always a command (blue) - with specific context transitions
       [/(stats|eventstats|streamstats)\b/i, { token: 'keyword.spl-command', next: '@statsContext' }],
       [/(eval)\b/i, { token: 'keyword.spl-command', next: '@evalContext' }],
       [/(table|fields)\b/i, { token: 'keyword.spl-command', next: '@fieldListContext' }],
       [/(search|where)\b/i, { token: 'keyword.spl-command', next: '@searchContext' }],
-      [/(makeresults|rename|rex|spath|dedup|fillnull|lookup|join|transaction|bin|bucket|append|inputlookup|outputlookup|tstats|pivot|collect|delete|iplocation|inputcsv|outputcsv|map|multisearch|return|sendemail|set|setfields|transpose|xyseries|sort|head|top)\b/i, { token: 'keyword.spl-command', next: '@generalContext' }],
+      
+      // Any other word is treated as a command (blue) and goes to general context
+      [/([a-zA-Z_][\w]*)\b/i, { token: 'keyword.spl-command', next: '@generalContext' }],
 
-      // Default fallback
+      // Default fallback (shouldn't be needed now)
       [/.*/, { token: 'identifier', next: '@generalContext' }],
     ],
 
@@ -39,11 +38,10 @@ export const splLanguage = {
       [/\s+/, 'white'],
       [/\|/, { token: 'delimiter', next: '@command' }],
       
-      // Always-function words (purple) - these should be functions regardless of context
-      [/(isnotnull|isnull|isnum|len|round|floor|ceil|abs|sqrt|case|if|coalesce|now|time|strftime|strptime|tonumber|tostring|replace|trim|lower|upper|substr|split|match|rex_extract)\b/i, 'predefined.spl-function'],
+      // Any function followed by opening parenthesis (purple/pink)
+      [/\b([a-zA-Z_][\w]*)\s*(?=\()/i, 'predefined.spl-function'],
       
-      // Aggregation functions (pink) ONLY when used as functions with parentheses or as bare words (Splunk highlights both in stats context)
-      [/(count|sum|avg|min|max|stdev|median|mode|values|list|first|last|earliest|latest)(?=\s*\()/i, 'predefined.spl-agg'],
+      // Aggregation functions as bare words in stats context (pink)
       [/\b(count|sum|avg|min|max|stdev|median|mode|values|list|first|last|earliest|latest)\b/i, 'predefined.spl-agg'],
       
       // Field assignments (green)
@@ -73,8 +71,8 @@ export const splLanguage = {
     fieldListContext: [
       [/\s+/, 'white'],
       [/\|/, { token: 'delimiter', next: '@command' }],
-      // Always-function words (purple) - these should be functions regardless of context
-      [/(isnotnull|isnull|isnum|len|round|floor|ceil|abs|sqrt|case|if|coalesce|now|time|strftime|strptime|tonumber|tostring|replace|trim|lower|upper|substr|split|match|rex_extract)\b/i, 'predefined.spl-function'],
+      // Any function followed by opening parenthesis (purple/pink)
+      [/\b([a-zA-Z_][\w]*)\s*(?=\()/i, 'predefined.spl-function'],
       // In field list context, count/sum/etc are just field names (uncolored)
       [/[a-zA-Z_][\w\-]*/, 'identifier'],
       // Other tokens
@@ -90,13 +88,11 @@ export const splLanguage = {
       [/\s+/, 'white'],
       [/\|/, { token: 'delimiter', next: '@command' }],
       
-      // Always-function words (purple) - these should be functions regardless of context
-      [/(isnotnull|isnull|isnum|len|round|floor|ceil|abs|sqrt|case|if|coalesce|now|time|strftime|strptime|tonumber|tostring|replace|trim|lower|upper|substr|split|match|rex_extract|null|random)\b/i, 'predefined.spl-function'],
+      // Any function followed by opening parenthesis (purple/pink) - must come first
+      [/\b([a-zA-Z_][\w]*)\s*(?=\()/i, 'predefined.spl-function'],
+      
       // Field assignments: treat field names as plain identifiers (no special color)
       [/([a-zA-Z_][\w\-]*)\s*(=)/, ['identifier', 'operator']],
-      
-      // Aggregation functions (pink) ONLY when used as functions with parentheses
-      [/(count|sum|avg|min|max|stdev|median|mode|values|list|first|last|earliest|latest)(?=\s*\()/i, 'predefined.spl-agg'],
       
       // Clause keywords (orange)
       [/(by|as)\b/i, 'keyword.spl-clause'],
@@ -130,14 +126,11 @@ export const splLanguage = {
       [/\s+/, 'white'],
       [/\|/, { token: 'delimiter', next: '@command' }],
       
-      // Always-function words (purple) - these should be functions regardless of context
-      [/(isnotnull|isnull|isnum|len|round|floor|ceil|abs|sqrt|case|if|coalesce|now|time|strftime|strptime|tonumber|tostring|replace|trim|lower|upper|substr|split|match|rex_extract|null|random)\b/i, 'predefined.spl-function'],
+      // Any function followed by opening parenthesis (purple/pink)
+      [/\b([a-zA-Z_][\w]*)\s*(?=\()/i, 'predefined.spl-function'],
       
       // Field comparisons - treat as plain identifiers (no special color for field names in search/where)
       [/([a-zA-Z_][\w\-]*)\s*(=)/, ['identifier', 'operator']],
-      
-      // Aggregation functions (pink) ONLY when used as functions with parentheses
-      [/(count|sum|avg|min|max|stdev|median|mode|values|list|first|last|earliest|latest)(?=\s*\()/i, 'predefined.spl-agg'],
       
       // Boolean and logical operators (same color as clause keywords - orange)
       [/(AND|OR|NOT|IN|LIKE|IS|NULL|TRUE|FALSE)\b/i, 'keyword.spl-clause'],
@@ -168,14 +161,11 @@ export const splLanguage = {
       [/\s+/, 'white'],
       [/\|/, { token: 'delimiter', next: '@command' }],
       
-      // Always-function words (purple) - these should be functions regardless of context
-      [/(isnotnull|isnull|isnum|len|round|floor|ceil|abs|sqrt|case|if|coalesce|now|time|strftime|strptime|tonumber|tostring|replace|trim|lower|upper|substr|split|match|rex_extract)\b/i, 'predefined.spl-function'],
+      // Any function followed by opening parenthesis (purple/pink)
+      [/\b([a-zA-Z_][\w]*)\s*(?=\()/i, 'predefined.spl-function'],
       
       // Field assignments (green) - must come before general identifier matching
       [/([a-zA-Z_][\w\-]*)\s*(=)/, ['identifier.spl-field-name', 'operator']],
-      
-      // Aggregation functions (pink) ONLY when used as functions with parentheses
-      [/(count|sum|avg|min|max|stdev|median|mode|values|list|first|last|earliest|latest)(?=\s*\()/i, 'predefined.spl-agg'],
       
       // Clause keywords (orange)
       [/(by|as|over|from|in|on|using|with|group|order|limit|filldown|fillnull|nodename|nodetype|nodestatus)\b/i, 'keyword.spl-clause'],
@@ -215,12 +205,13 @@ export const splLanguage = {
       [/\|/, { token: 'delimiter', next: '@command' }],
       // Special handling for search command at start of subsearch
       [/\s*(search)\b/i, 'keyword.spl-command'],
-      // Always-function words (purple) - these should be functions regardless of context
-      [/(isnotnull|isnull|isnum|len|round|floor|ceil|abs|sqrt|case|if|coalesce|now|time|strftime|strptime|tonumber|tostring|replace|trim|lower|upper|substr|split|match|rex_extract)\b/i, 'predefined.spl-function'],
-      // Field assignments (green) - must come before general identifier matching
-      [/([a-zA-Z_][\w\-]*)\s*(=)/, ['identifier.spl-field-name', 'operator']],
-      // Aggregation functions (pink) ONLY when used as functions with parentheses
-      [/(count|sum|avg|min|max|stdev|median|mode|values|list|first|last|earliest|latest)(?=\s*\()/i, 'predefined.spl-agg'],
+      // Any function followed by opening parenthesis (purple/pink)
+      [/\b([a-zA-Z_][\w]*)\s*(?=\()/i, 'predefined.spl-function'],
+      // Search constraints (field=value) - treat as regular identifiers, not field assignments
+      // These are search terms within subsearch, not command arguments
+      [/([a-zA-Z_][\w\-]*)\s*(=)/, ['identifier', 'operator']],
+      // Aggregation functions as bare words in stats context (pink)
+      [/\b(count|sum|avg|min|max|stdev|median|mode|values|list|first|last|earliest|latest)\b/i, 'predefined.spl-agg'],
       // Clause keywords (orange)
       [/(by|as)\b/i, 'keyword.spl-clause'],
       // Operators - must come before individual character matching
@@ -243,21 +234,19 @@ export const splLanguage = {
       [/\s+/, 'white'],
       [/\|/, { token: 'delimiter', next: '@command' }],
       
-      // Only mark assignments as field names if the field name isn't a special keyword
-      [/(?!index|source|sourcetype|host|dest|dest_ip|src|src_ip|tracker_id)([a-zA-Z_][\w\-]*)\s*(=)/, ['identifier.spl-field-name', 'operator.assignment']],
-      
-      // Special keywords followed by = should be regular identifiers with operator
-      [/(index|source|sourcetype|host|dest|dest_ip|src|src_ip|tracker_id)\s*(=)/, ['identifier', 'operator.assignment']],
+      // Search constraints (field=value) - treat as regular identifiers, not field assignments
+      // These are search terms, not command arguments, so field names should not be highlighted
+      [/([a-zA-Z_][\w\-]*)\s*(=)/, ['identifier', 'operator']],
       
       // Boolean and logical operators (same color as clause keywords - orange)
       [/(AND|OR|NOT|IN|LIKE|IS|NULL|TRUE|FALSE)\b/i, 'keyword.spl-clause'],
       
       // Comparison operators
-      [/(?:!=|<=|>=|<|>|=)/, 'operator.comparison'],
+      [/(?:!=|<=|>=|<|>|=)/, 'operator'],
       
       // Strings
-      [/".*?"/, 'string.double'],
-      [/'[^']*'/, 'string.single'],
+      [/".*?"/, 'string'],
+      [/'[^']*'/, 'string'],
       
       // Numbers
       [/\d+(\.\d+)?/, 'number'],

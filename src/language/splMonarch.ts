@@ -1,269 +1,315 @@
 // src/language/splMonarch.ts
-// Context-aware Monarch tokenizer for Splunk SPL
-// 
-// Key insight: Aggregation functions like 'count' should only be highlighted as functions
-// in the appropriate context (e.g., after | stats), not when used as field names 
-// (e.g., in | table count where 'count' refers to a field created by a previous stats command)
+
 export const splLanguage = {
+  // Set default token to avoid errors
   defaultToken: 'source.spl',
+
+  // --- Tokenizer Configuration ---
+  // Commands (blue)
+  // https://help.splunk.com/en/splunk-cloud-platform/search/spl2-search-reference/quick-reference-for-spl2-commands/spl2-command-quick-reference
+  splCommands: [
+    'addinfo', 'addtotals', 'anomalies', 'anomalousvalue', 'append', 'appendcols', 'appendpipe',
+    'associate', 'autoregress', 'bin', 'branch', 'bucket', 'chart', 'cluster', 'collect', 'concurrency', 'contingency',
+    'convert', 'correlate', 'dbinspect', 'dedup', 'delete', 'delta', 'diff', 'erex', 'eval', 'eventstats',
+    'expand', 'export', 'extract', 'fieldformat', 'fields', 'fieldsummary', 'filldown', 'fillnull', 'findtypes',
+    'flatten', 'foreach', 'format', 'from', 'gentimes', 'geom', 'geomfilter', 'head', 'history', 'input', 'inputcsv', 'inputlookup',
+    'into', 'iplocation', 'join', 'kmeans', 'kvform', 'loadjob', 'localop', 'lookup', 'makecontinuous', 'makemv',
+    'map', 'metadata', 'metasearch', 'multikv', 'mvexpand', 'mvcombine', 'nomv', 'outlier', 'outputcsv',
+    'outputlookup', 'outputtext', 'overlap', 'predict', 'rare', 'regex', 'relevancy', 'reltime', 'rename',
+    'replace', 'rest', 'return', 'reverse', 'rex', 'run', 'savedsearch', 'script', 'scrub', 'search',
+    'select', 'selfjoin', 'sendemail', 'set', 'sichart', 'sirare', 'sistats', 'sitimechart', 'sitruncate', 'sort',
+    'spath', 'spl1', 'stats', 'strcat', 'streamstats', 'table', 'tags', 'tail', 'thru', 'timechart', 'timewrap', 'top', 'transaction',
+    'transpose', 'trendline', 'tscollect', 'tstats', 'typeahead', 'typelearner', 'typer', 'union', 'uniq',
+    'untable', 'where', 'x11', 'xmlkv', 'xpath', 'xyseries'
+  ],
+
+  // Clauses (orange) - haven't figured out how to make these case-insensitive yet. This will do for now.
+  // Also not sure how many of these are actually clauses, just guessed. If I see any issues I'll commit an update that can be rolled into the next release.
+  splClauses: [
+    'as', 'AS', 'by', 'BY', 'over', 'OVER', 'in', 'IN', 'where', 'WHERE', 
+    'output', 'OUTPUT', 'outputnew', 'OUTPUTNEW', 'on', 'ON', 'using', 'USING', 
+    'with', 'WITH', 'for', 'FOR', 'against', 'AGAINST', 'sortby', 'SORTBY',
+    'and', 'AND', 'or', 'OR', 'not', 'NOT', 'xor', 'XOR'
+  ],
+
+  // Aggregation/statistical functions (pink/purple)
+  // https://help.splunk.com/en/splunk-cloud-platform/search/spl2-search-reference/statistical-and-charting-functions/aggregate-functions
+  splAggFunctions: [
+    'avg', 'count', 'c', 'distinct_count', 'dc', 'estdc', 'estdc_error', 'exactperc',
+    'max', 'mean', 'median', 'min', 'mode', 'p', 'perc', 'range', 'stdev', 'stdevp', 'sum',
+    'sumsq', 'upperperc', 'var', 'varp',
+  ],
+
+  // General-purpose functions (pink/purple)
+  // https://docs.splunk.com/Documentation/SplunkCloud/latest/SearchReference/CommonEvalFunctions
+  splEvalFunctions: [
+    // Bitwise functions
+    'bit_and', 'bit_or', 'bit_not', 'bit_xor', 'bit_shift_left', 'bit_shift_right',
+    // Comparison and Conditional functions
+    'case', 'cidrmatch', 'coalesce', 'false', 'if', 'in', 'like', 'lookup', 'match', 
+    'null', 'nullif', 'searchmatch', 'true', 'validate',
+    // Conversion functions
+    'ipmask', 'printf', 'toarray', 'tobool', 'todouble', 'toint', 'tomv', 'tonumber', 
+    'toobject', 'tostring',
+    // Cryptographic functions
+    'md5', 'sha1', 'sha256', 'sha512',
+    // Date and Time functions
+    'now', 'relative_time', 'strftime', 'strptime', 'time',
+    // Informational functions
+    'isarray', 'isbool', 'isdouble', 'isint', 'ismv', 'isnotnull', 'isnull', 'isnum', 
+    'isobject', 'isstr', 'typeof',
+    // JSON functions
+    'json_object', 'json', 'json_append', 'json_array', 'json_array_to_mv', 'json_delete',
+    'json_entries', 'json_extend', 'json_extract', 'json_extract_exact', 'json_has_key_exact',
+    'json_keys', 'json_set', 'json_set_exact', 'json_valid',
+    // Mathematical functions
+    'abs', 'ceiling', 'exact', 'exp', 'floor', 'ln', 'log', 'pi', 'pow', 'round', 
+    'sigfig', 'sqrt', 'sum',
+    // Multivalue eval functions
+    'commands', 'mvappend', 'mvcount', 'mvdedup', 'mvfilter', 'mvfind', 'mvindex', 
+    'mvjoin', 'mvmap', 'mvrange', 'mvsort', 'mvzip', 'mv_to_json_array', 'split',
+    // Statistical eval functions
+    'avg', 'max', 'min', 'random',
+    // Text functions
+    'len', 'lower', 'ltrim', 'replace', 'rtrim', 'spath', 'substr', 'trim', 'upper', 
+    'urldecode',
+    // Trigonometry and Hyperbolic functions
+    'acos', 'acosh', 'asin', 'asinh', 'atan', 'atan2', 'atanh', 'cos', 'cosh', 'hypot', 
+    'sin', 'sinh', 'tan', 'tanh'
+  ],
+
+  // --- Tokenizer States ---
   tokenizer: {
     root: [
-      // Pipe delimiter - transitions to command context
+      // A pipe transitions to the command context.
       [/\|/, { token: 'delimiter', next: '@command' }],
-
-      // Handle search command at the beginning of the query
-      [/^(search)\s+/i, { token: 'keyword.spl-command', next: '@search' }],
-
-      // Initial search without pipe
-      [/^/, { token: '', next: '@search' }],
+      // The query starts in the 'search' context.
+      { include: '@searchContext' }
     ],
 
-    // Command context - right after a pipe
+    // State right after a pipe, expecting a command.
     command: [
-      // Whitespace
       [/\s+/, 'white'],
-
-      // SPL commands (blue) - transition to appropriate context
-      [/(stats|eventstats|streamstats)\b/i, { token: 'keyword.spl-command', next: '@statsContext' }],
-      [/(eval)\b/i, { token: 'keyword.spl-command', next: '@evalContext' }],
-      [/(table|fields)\b/i, { token: 'keyword.spl-command', next: '@fieldListContext' }],
-      [/(search|where)\b/i, { token: 'keyword.spl-command', next: '@searchContext' }],
-      [/(makeresults|rename|rex|spath|dedup|fillnull|lookup|join|transaction|bin|bucket|append|inputlookup|outputlookup|tstats|pivot|collect|delete|iplocation|inputcsv|outputcsv|map|multisearch|return|sendemail|set|setfields|transpose|xyseries|sort|head|top)\b/i, { token: 'keyword.spl-command', next: '@generalContext' }],
-
-      // Default fallback
-      [/.*/, { token: 'identifier', next: '@generalContext' }],
+      // Identify the command and switch to a more specific context.
+      [/([a-zA-Z_][\w]*)/, {
+        cases: {
+          '^(stats|chart|timechart|eventstats)$': { token: 'keyword.spl-command', next: '@statsContext' },
+          '^(eval|where)$': { token: 'keyword.spl-command', next: '@evalContext' },
+          '^(lookup|inputlookup)$': { token: 'keyword.spl-command', next: '@lookupContext' },
+          '^(rename)$': { token: 'keyword.spl-command', next: '@renameContext' },
+          '^(fields|table)$': { token: 'keyword.spl-command', next: '@fieldListContext' },
+          '^(search)$': { token: 'keyword.spl-command', next: '@searchCommandContext' },
+          '@splCommands': { token: 'keyword.spl-command', next: '@generalContext' },
+          '@default': { token: 'identifier', next: '@generalContext' }
+        }
+      }],
     ],
 
-    // Stats context - aggregation functions should be pink
-    statsContext: [
-      [/\s+/, 'white'],
-      [/\|/, { token: 'delimiter', next: '@command' }],
-      
-      // Always-function words (purple) - these should be functions regardless of context
-      [/(isnotnull|isnull|isnum|len|round|floor|ceil|abs|sqrt|case|if|coalesce|now|time|strftime|strptime|tonumber|tostring|replace|trim|lower|upper|substr|split|match|rex_extract)\b/i, 'predefined.spl-function'],
-      
-      // Aggregation functions (pink) ONLY when used as functions with parentheses or as bare words (Splunk highlights both in stats context)
-      [/(count|sum|avg|min|max|stdev|median|mode|values|list|first|last|earliest|latest)(?=\s*\()/i, 'predefined.spl-agg'],
-      [/\b(count|sum|avg|min|max|stdev|median|mode|values|list|first|last|earliest|latest)\b/i, 'predefined.spl-agg'],
-      
-      // Field assignments (green)
-      [/([a-zA-Z_][\w\-]*)\s*(=)/, ['identifier.spl-field-name', 'operator']],
-      
-      // Clause keywords (orange)
-      [/(by|as|over)\b/i, 'keyword.spl-clause'],
-      
-      // Brackets
-      [/[{}()\[\]]/, '@brackets'],
-      
-      // Strings
-      [/".*?"/, 'string'],
-      [/'[^']*'/, 'string'],
-      
-      // Numbers
-      [/\d+(\.\d+)?/, 'number'],
-      
-      // Operators
-      [/(?:!=|<=|>=|<|>|=|\+|\-|\*|\/|%)/, 'operator'],
-      
-      // Identifiers (field names)
-      [/[a-zA-Z_][\w\-]*/, 'identifier'],
-    ],
-
-    // Field list context - aggregation function names should be regular identifiers (never colored as functions)
-    fieldListContext: [
-      [/\s+/, 'white'],
-      [/\|/, { token: 'delimiter', next: '@command' }],
-      // Always-function words (purple) - these should be functions regardless of context
-      [/(isnotnull|isnull|isnum|len|round|floor|ceil|abs|sqrt|case|if|coalesce|now|time|strftime|strptime|tonumber|tostring|replace|trim|lower|upper|substr|split|match|rex_extract)\b/i, 'predefined.spl-function'],
-      // In field list context, count/sum/etc are just field names (uncolored)
-      [/[a-zA-Z_][\w\-]*/, 'identifier'],
-      // Other tokens
-      [/[{}()\[\]]/, '@brackets'],
-      [/".*?"/, 'string'],
-      [/'[^']*'/, 'string'],
-      [/\d+(\.\d+)?/, 'number'],
-      [/(?:!=|<=|>=|<|>|=|\+|\-|\*|\/|%)/, 'operator'],
-    ],
-
-    // Eval context - more complex expressions
-    evalContext: [
-      [/\s+/, 'white'],
-      [/\|/, { token: 'delimiter', next: '@command' }],
-      
-      // Always-function words (purple) - these should be functions regardless of context
-      [/(isnotnull|isnull|isnum|len|round|floor|ceil|abs|sqrt|case|if|coalesce|now|time|strftime|strptime|tonumber|tostring|replace|trim|lower|upper|substr|split|match|rex_extract|null|random)\b/i, 'predefined.spl-function'],
-      // Field assignments: treat field names as plain identifiers (no special color)
-      [/([a-zA-Z_][\w\-]*)\s*(=)/, ['identifier', 'operator']],
-      
-      // Aggregation functions (pink) ONLY when used as functions with parentheses
-      [/(count|sum|avg|min|max|stdev|median|mode|values|list|first|last|earliest|latest)(?=\s*\()/i, 'predefined.spl-agg'],
-      
-      // Clause keywords (orange)
-      [/(by|as)\b/i, 'keyword.spl-clause'],
-      
-      // Boolean and logical operators (same color as clause keywords - orange)
-      [/(AND|OR|NOT|IN|LIKE|IS|NULL|TRUE|FALSE)\b/i, 'keyword.spl-clause'],
-      
-      // Operators - must come before individual character matching
-      [/(?:!=|<=|>=|<|>|=|\+|\-|\*|\/|%)/, 'operator'],
-      
-      // Numbers - must come before identifier matching
-      [/\d+(\.\d+)?/, 'number'],
-      
-      // Strings
-      [/".*?"/, 'string'],
-      [/'[^']*'/, 'string'],
-      
-      // Brackets
-      [/\[/, { token: '@brackets', next: '@subsearch' }],
-      [/[{}()\]]/, '@brackets'],
-      
-      // Identifiers (variables, field references) - should be last specific rule
-      [/[a-zA-Z_][\w\-]*/, 'identifier'],
-      
-      // Fallback for any remaining characters
-      [/./, 'identifier'],
-    ],
-
-    // Search context - similar to eval but for search expressions
+    // Context for initial search (before the first pipe).
     searchContext: [
       [/\s+/, 'white'],
-      [/\|/, { token: 'delimiter', next: '@command' }],
-      
-      // Always-function words (purple) - these should be functions regardless of context
-      [/(isnotnull|isnull|isnum|len|round|floor|ceil|abs|sqrt|case|if|coalesce|now|time|strftime|strptime|tonumber|tostring|replace|trim|lower|upper|substr|split|match|rex_extract|null|random)\b/i, 'predefined.spl-function'],
-      
-      // Field comparisons - treat as plain identifiers (no special color for field names in search/where)
-      [/([a-zA-Z_][\w\-]*)\s*(=)/, ['identifier', 'operator']],
-      
-      // Aggregation functions (pink) ONLY when used as functions with parentheses
-      [/(count|sum|avg|min|max|stdev|median|mode|values|list|first|last|earliest|latest)(?=\s*\()/i, 'predefined.spl-agg'],
-      
-      // Boolean and logical operators (same color as clause keywords - orange)
-      [/(AND|OR|NOT|IN|LIKE|IS|NULL|TRUE|FALSE)\b/i, 'keyword.spl-clause'],
-      
-      // Operators - must come before individual character matching
-      [/(?:!=|<=|>=|<|>|=|\+|\-|\*|\/|%)/, 'operator'],
-      
-      // Numbers - must come before identifier matching
-      [/\d+(\.\d+)?/, 'number'],
-      
-      // Strings
-      [/".*?"/, 'string'],
-      [/'[^']*'/, 'string'],
-      
-      // Brackets (including subsearch)
-      [/\[/, { token: '@brackets', next: '@subsearch' }],
+      // Handle strings first (before keyword matching) - with escaped quote support
+      [/"(?:[^"\\]|\\.)*"/, 'string'],
+      [/'(?:[^'\\]|\\.)*'/, 'string'],
+      // Handle subsearch opening bracket like a pipe - transition to command context
+      [/\[/, { token: '@brackets', next: '@command' }],
+      // Handle `argument=value` pairs for search arguments like earliest, latest
+      [/\b(earliest|latest)(=)/, ['identifier.spl-field-name', 'operator']],
+      // Field names are plain identifiers, not green arguments.
+      [/[a-zA-Z_][\w\-\.]*/, {
+        cases: {
+          '@splClauses': 'keyword.spl-clause',
+          '@default': 'identifier'
+        }
+      }],
+      // Include remaining common tokens (numbers, brackets, operators)
+      [/\d[\d\.]*/, 'number'],
       [/[{}()\]]/, '@brackets'],
-      
-      // Identifiers - should be last specific rule
-      [/[a-zA-Z_][\w\-]*/, 'identifier'],
-      
-      // Fallback for any remaining characters
-      [/./, 'identifier'],
+      [/[=,><!+\-*\/%]+/, 'operator']
     ],
 
-    // General context for other commands
+    // Context for stats, chart, timechart commands.
+    statsContext: [
+      [/\s+/, 'white'],
+      // Handle strings first (before keyword matching) - with escaped quote support
+      [/"(?:[^"\\]|\\.)*"/, 'string'],
+      [/'(?:[^'\\]|\\.)*'/, 'string'],
+      [/\|/, { token: 'delimiter', next: '@command' }],
+      // Handle subsearch opening bracket like a pipe - transition to command context
+      [/\[/, { token: '@brackets', next: '@command' }],
+      // "AS" clause -> switch to color the new field name green.
+      [/\b(as)\b/i, { token: 'keyword.spl-clause', next: '@asClause' }],
+      // Special case: p/perc followed by digits (e.g., p95, perc99) as a single agg function (pink)
+      [/(p|perc)\d+/i, 'predefined.spl-agg'],
+      // Functions like `sum(field)`.
+      [/(\w+)(?=\s*\()/i, {
+        cases: {
+          '@splAggFunctions': 'predefined.spl-function',
+          '@splEvalFunctions': 'predefined.spl-function',
+          '@default': 'identifier'
+        }
+      }],
+      // Bare aggregation functions (count), clauses (by), and fields.
+      [/[a-zA-Z_]\w*/, {
+        cases: {
+          '@splClauses': 'keyword.spl-clause',
+          '@splAggFunctions': 'predefined.spl-agg',
+          '@default': 'identifier' // Field names
+        }
+      }],
+      // Include remaining common tokens (numbers, brackets, operators)
+      [/\d[\d\.]*/, 'number'],
+      [/[{}()\]]/, '@brackets'],
+      [/[=,><!+\-*\/%]+/, 'operator']
+    ],
+
+    // Context for explicit `search` command after a pipe.
+    searchCommandContext: [
+      [/\s+/, 'white'],
+      // Handle strings first (before keyword matching) - with escaped quote support
+      [/"(?:[^"\\]|\\.)*"/, 'string'],
+      [/'(?:[^'\\]|\\.)*'/, 'string'],
+      [/\|/, { token: 'delimiter', next: '@command' }],
+      // Handle subsearch opening bracket like a pipe - transition to command context
+      [/\[/, { token: '@brackets', next: '@command' }],
+      // Handle `argument=value` pairs for search arguments like earliest, latest
+      [/\b(earliest|latest)(=)/, ['identifier.spl-field-name', 'operator']],
+      // Field names and clauses.
+      [/[a-zA-Z_][\w\-\.]*/, {
+        cases: {
+          '@splClauses': 'keyword.spl-clause',
+          '@default': 'identifier'
+        }
+      }],
+      // Include remaining common tokens (numbers, brackets, operators)
+      [/\d[\d\.]*/, 'number'],
+      [/[{}()\]]/, '@brackets'],
+      [/[=,><!+\-*\/%]+/, 'operator']
+    ],
+
+    // Context for `eval` and `where` commands.
+    evalContext: [
+      [/\s+/, 'white'],
+      // Handle strings first (before keyword matching) - with escaped quote support
+      [/"(?:[^"\\]|\\.)*"/, 'string'],
+      [/'(?:[^'\\]|\\.)*'/, 'string'],
+      [/\|/, { token: 'delimiter', next: '@command' }],
+      // Functions like `case(...)` or `if(...)`.
+      [/(\w+)(?=\s*\()/i, {
+        cases: {
+          '@splEvalFunctions': 'predefined.spl-function',
+          '@default': 'identifier'
+        }
+      }],
+      // Field names, clauses, and booleans.
+      [/[a-zA-Z_][\w\-\.]*/, {
+        cases: {
+          '@splClauses': 'keyword.spl-clause',
+          '@default': 'identifier'
+        }
+      }],
+      // Include remaining common tokens (numbers, brackets, operators)
+      [/\d[\d\.]*/, 'number'],
+      [/[{}()\]]/, '@brackets'],
+      [/[=,><!+\-*\/%]+/, 'operator']
+    ],
+
+    // Context for `lookup` command.
+    lookupContext: [
+      [/\s+/, 'white'],
+      // Handle strings first (before keyword matching) - with escaped quote support
+      [/"(?:[^"\\]|\\.)*"/, 'string'],
+      [/'(?:[^'\\]|\\.)*'/, 'string'],
+      [/\|/, { token: 'delimiter', next: '@command' }],
+      // "AS" clause -> switch to color the new field name green.
+      [/\b(as)\b/i, { token: 'keyword.spl-clause', next: '@asClause' }],
+      // "OUTPUT" clause (case-insensitive)
+      [/\b(output|outputnew)\b/i, 'keyword.spl-clause'],
+      // Other clauses and fields.
+      [/[a-zA-Z_]\w*/, {
+        cases: {
+          '@splClauses': 'keyword.spl-clause',
+          '@default': 'identifier' // Lookup table name, field names
+        }
+      }],
+      // Include remaining common tokens (numbers, brackets, operators)
+      [/\d[\d\.]*/, 'number'],
+      [/[{}()\]]/, '@brackets'],
+      [/[=,><!+\-*\/%]+/, 'operator']
+    ],
+
+    // Context for `rename` command.
+    renameContext: [
+      [/\s+/, 'white'],
+      // Handle strings first (before keyword matching) - with escaped quote support
+      [/"(?:[^"\\]|\\.)*"/, 'string'],
+      [/'(?:[^'\\]|\\.)*'/, 'string'],
+      [/\|/, { token: 'delimiter', next: '@command' }],
+      // The pattern is `field AS new_field`.
+      [/\b(as)\b/i, { token: 'keyword.spl-clause', next: '@asClause' }],
+      // Field names, which can include wildcards.
+      [/[a-zA-Z_][\w\-\.\*]*/, 'identifier'],
+      // Include remaining common tokens (numbers, brackets, operators)
+      [/\d[\d\.]*/, 'number'],
+      [/[{}()\]]/, '@brackets'],
+      [/[=,><!+\-*\/%]+/, 'operator']
+    ],
+
+    // A temporary state to handle the field name after an "AS" clause.
+    asClause: [
+      [/\s+/, 'white'],
+      // This token is the new field name (regular identifier). Then pop back.
+      [/[a-zA-Z_][\w\-\.]+/, { token: 'identifier', next: '@pop' }],
+      // If no field name, pop back to be safe.
+      [/./, { token: '', next: '@pop' }]
+    ],
+
+    // Context for simple field lists (`table`, `fields`).
+    fieldListContext: [
+      [/\s+/, 'white'],
+      // Handle strings first (before keyword matching) - with escaped quote support
+      [/"(?:[^"\\]|\\.)*"/, 'string'],
+      [/'(?:[^'\\]|\\.)*'/, 'string'],
+      [/\|/, { token: 'delimiter', next: '@command' }],
+      // Any word is just a field name. Wildcards are allowed.
+      [/[a-zA-Z_][\w\-\.\*]*/, 'identifier'],
+      // Include remaining common tokens (numbers, brackets, operators)
+      [/\d[\d\.]*/, 'number'],
+      [/[{}()\]]/, '@brackets'],
+      [/[=,><!+\-*\/%]+/, 'operator']
+    ],
+
+    // Context for other commands that have `name=value` arguments (`fillnull`, `bin`, etc.).
     generalContext: [
       [/\s+/, 'white'],
+      // Handle strings first (before keyword matching) - with escaped quote support
+      [/"(?:[^"\\]|\\.)*"/, 'string'],
+      [/'(?:[^'\\]|\\.)*'/, 'string'],
       [/\|/, { token: 'delimiter', next: '@command' }],
-      
-      // Always-function words (purple) - these should be functions regardless of context
-      [/(isnotnull|isnull|isnum|len|round|floor|ceil|abs|sqrt|case|if|coalesce|now|time|strftime|strptime|tonumber|tostring|replace|trim|lower|upper|substr|split|match|rex_extract)\b/i, 'predefined.spl-function'],
-      
-      // Field assignments (green) - must come before general identifier matching
-      [/([a-zA-Z_][\w\-]*)\s*(=)/, ['identifier.spl-field-name', 'operator']],
-      
-      // Aggregation functions (pink) ONLY when used as functions with parentheses
-      [/(count|sum|avg|min|max|stdev|median|mode|values|list|first|last|earliest|latest)(?=\s*\()/i, 'predefined.spl-agg'],
-      
-      // Clause keywords (orange)
-      [/(by|as|over|from|in|on|using|with|group|order|limit|filldown|fillnull|nodename|nodetype|nodestatus)\b/i, 'keyword.spl-clause'],
-      
-      // Boolean and logical operators (same color as clause keywords - orange)
-      [/(AND|OR|NOT|IN|LIKE|IS|NULL|TRUE|FALSE)\b/i, 'keyword.spl-clause'],
-      
-      // Operators (all types) - must come before individual character matching
-      [/(?:!=|<=|>=|<|>|=|\+|\-|\*|\/|%)/, 'operator'],
-      
-      // Numbers - must come before identifier matching
-      [/\d+(\.\d+)?/, 'number'],
-      
-      // Strings
-      [/".*?"/, 'string'],
-      [/'[^']*'/, 'string'],
-      
-      // Comments
-      [/^\s*#.*$/, 'comment'],
-      
-      // Brackets
-      [/\[/, { token: '@brackets', next: '@subsearch' }],
+      // Handle subsearch opening bracket like a pipe - transition to command context
+      [/\[/, { token: '@brackets', next: '@command' }],
+      // Handle `argument=value` pairs, making the argument name green.
+      [/([a-zA-Z_][\w\-]*)(=)/, ['identifier.spl-field-name', 'operator']],
+      // Handle clauses like `BY`.
+      [/[a-zA-Z_]\w*/, {
+        cases: {
+          '@splClauses': 'keyword.spl-clause',
+          '@default': 'identifier'
+        }
+      }],
+      // Include remaining common tokens (numbers, brackets, operators)
+      [/\d[\d\.]*/, 'number'],
       [/[{}()\]]/, '@brackets'],
-      
-      // Identifiers - should be last specific rule
-      [/[a-zA-Z_][\w\-]*/, 'identifier'],
-      
-      // Fallback for any remaining characters
-      [/./, 'identifier'],
+      [/[=,><!+\-*\/%]+/, 'operator']
     ],
 
-    // Subsearch context
-    subsearch: [
-      [/\]/, { token: '@brackets', next: '@pop' }],
-      [/\s+/, 'white'],
-      // Pipe delimiter - transitions to command context within subsearch
-      [/\|/, { token: 'delimiter', next: '@command' }],
-      // Special handling for search command at start of subsearch
-      [/\s*(search)\b/i, 'keyword.spl-command'],
-      // Always-function words (purple) - these should be functions regardless of context
-      [/(isnotnull|isnull|isnum|len|round|floor|ceil|abs|sqrt|case|if|coalesce|now|time|strftime|strptime|tonumber|tostring|replace|trim|lower|upper|substr|split|match|rex_extract)\b/i, 'predefined.spl-function'],
-      // Field assignments (green) - must come before general identifier matching
-      [/([a-zA-Z_][\w\-]*)\s*(=)/, ['identifier.spl-field-name', 'operator']],
-      // Aggregation functions (pink) ONLY when used as functions with parentheses
-      [/(count|sum|avg|min|max|stdev|median|mode|values|list|first|last|earliest|latest)(?=\s*\()/i, 'predefined.spl-agg'],
-      // Clause keywords (orange)
-      [/(by|as)\b/i, 'keyword.spl-clause'],
-      // Operators - must come before individual character matching
-      [/(?:!=|<=|>=|<|>|=|\+|\-|\*|\/|%)/, 'operator'],
-      // Numbers - must come before identifier matching
-      [/\d+(\.\d+)?/, 'number'],
-      // Strings
-      [/".*?"/, 'string'],
-      [/'[^']*'/, 'string'],
-      // Other tokens
-      [/[{}()]/, '@brackets'],
-      // Identifiers - should be last specific rule
-      [/[a-zA-Z_][\w\-]*/, 'identifier'],
-      // Fallback for any remaining characters
-      [/./, 'identifier'],
-    ],
-
-    // Initial search context (no pipe at start)
-    search: [
-      [/\s+/, 'white'],
-      [/\|/, { token: 'delimiter', next: '@command' }],
-      
-      // Only mark assignments as field names if the field name isn't a special keyword
-      [/(?!index|source|sourcetype|host|dest|dest_ip|src|src_ip|tracker_id)([a-zA-Z_][\w\-]*)\s*(=)/, ['identifier.spl-field-name', 'operator.assignment']],
-      
-      // Special keywords followed by = should be regular identifiers with operator
-      [/(index|source|sourcetype|host|dest|dest_ip|src|src_ip|tracker_id)\s*(=)/, ['identifier', 'operator.assignment']],
-      
-      // Boolean and logical operators (same color as clause keywords - orange)
-      [/(AND|OR|NOT|IN|LIKE|IS|NULL|TRUE|FALSE)\b/i, 'keyword.spl-clause'],
-      
-      // Comparison operators
-      [/(?:!=|<=|>=|<|>|=)/, 'operator.comparison'],
-      
-      // Strings
-      [/".*?"/, 'string.double'],
-      [/'[^']*'/, 'string.single'],
-      
-      // Numbers
-      [/\d+(\.\d+)?/, 'number'],
-      
-      // Identifiers
-      [/[a-zA-Z_][\w\-]*/, 'identifier'],
-    ],
-  },
+    // A set of common token definitions used across multiple contexts.
+    commonTokens: [
+      [/"(?:[^"\\]|\\.)*"/, 'string'], // Handle escaped quotes properly
+      [/'(?:[^'\\]|\\.)*'/, 'string'], // Handle escaped quotes properly
+      [/\d[\d\.]*/, 'number'], // More robust number matching
+      [/[{}()\]]/, '@brackets'], // Added closing bracket back
+      [/[=,><!+\-*\/%]+/, 'operator']
+    ]
+  }
 };

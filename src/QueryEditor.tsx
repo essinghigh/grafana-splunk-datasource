@@ -95,8 +95,38 @@ const styles = {
     }
     
     [data-testid="data-testid ReactMonacoEditor editorLazy"] {
-      transition: height 0.2s ease-in-out;
-      overflow: hidden;
+      transition: height 0.15s ease-out;
+      overflow: hidden !important;
+    }
+    
+    /* Smooth transition class for regular changes */
+    [data-testid="data-testid ReactMonacoEditor editorLazy"].smooth-transition {
+      transition: height 0.15s ease-out;
+    }
+    
+    /* Immediate transition class for bottom expansions */
+    [data-testid="data-testid ReactMonacoEditor editorLazy"].immediate-transition {
+      transition: none;
+    }
+    
+    .monaco-editor {
+      transition: height 0.15s ease-out;
+    }
+    
+    .monaco-editor.smooth-transition {
+      transition: height 0.15s ease-out;
+    }
+    
+    .monaco-editor.immediate-transition {
+      transition: none;
+    }
+    
+    .monaco-editor .overflow-guard {
+      overflow: hidden !important;
+    }
+    
+    .monaco-editor .monaco-scrollable-element {
+      overflow: hidden !important;
     }
   `,
   placeholder: css`
@@ -139,11 +169,11 @@ export class QueryEditor extends PureComponent<Props, State> {
 
     // Start polling for height changes (less frequent now that we have content listeners)
     this.heightCheckInterval = setInterval(() => {
-      this.updateEditorHeight();
+      this.updateEditorHeight({ preservePosition: true });
     }, 500); // Check every 500ms as backup
   };
 
-  private updateEditorHeight = () => {
+  private updateEditorHeight = (options: { isBottomExpansion?: boolean, preservePosition?: boolean } = {}) => {
     if (!this.editorInstance) {
       return;
     }
@@ -159,26 +189,101 @@ export class QueryEditor extends PureComponent<Props, State> {
       return;
     }
 
+    // Store current cursor position and scroll state
+    const currentPosition = (this.editorInstance as any).getPosition();
+    const currentScrollTop = (this.editorInstance as any).getScrollTop();
+
     // Count the actual lines in the content
     const lineCount = model.getLineCount();
     
     // Calculate the required height (minimum 8 lines)
     const requiredLines = Math.max(lineCount, this.MIN_LINES);
-    // Monaco needs extra space for proper rendering - add ~3-4px per line for internal padding/margins
-    const extraSpacePerLine = 3;
-    const totalLineHeight = this.LINE_HEIGHT + extraSpacePerLine;
-    const newHeight = Math.max(requiredLines * totalLineHeight, this.MIN_LINES * totalLineHeight);
+    
+    // Try to get the actual content height from Monaco first
+    let newHeight;
+    try {
+      const contentHeight = (this.editorInstance as any).getContentHeight();
+      if (contentHeight && contentHeight > 0) {
+        // Use Monaco's calculated content height, but ensure minimum
+        newHeight = Math.max(contentHeight, this.MIN_LINES * this.LINE_HEIGHT);
+      } else {
+        // Fallback: use a slightly higher multiplier (20px per line)
+        newHeight = Math.max(requiredLines * 20, this.MIN_LINES * 20);
+      }
+    } catch (e) {
+      // If Monaco method fails, use fallback calculation
+      newHeight = Math.max(requiredLines * 20, this.MIN_LINES * 20);
+    }
 
     // Find the Monaco editor container by the correct data-testid value
     const editorContainer = domNode.closest('[data-testid="data-testid ReactMonacoEditor editorLazy"]') as HTMLElement;
     if (editorContainer) {
-      editorContainer.style.height = `${newHeight}px`;
-      
-      // Also set the inner Monaco editor to exactly the same height
+      const oldHeight = parseInt(editorContainer.style.height || '0', 10);
+      const heightDiff = newHeight - oldHeight;
       const monacoEditor = domNode.querySelector('.monaco-editor') as HTMLElement;
+      
+      // Handle transitions based on the type of change
+      if (options.isBottomExpansion && heightDiff > 0) {
+        // For bottom expansions, use immediate transition to prevent visual jump
+        editorContainer.classList.add('immediate-transition');
+        editorContainer.classList.remove('smooth-transition');
+        if (monacoEditor) {
+          monacoEditor.classList.add('immediate-transition');
+          monacoEditor.classList.remove('smooth-transition');
+        }
+      } else {
+        // For other changes, use smooth transition
+        editorContainer.classList.add('smooth-transition');
+        editorContainer.classList.remove('immediate-transition');
+        if (monacoEditor) {
+          monacoEditor.classList.add('smooth-transition');
+          monacoEditor.classList.remove('immediate-transition');
+        }
+      }
+      
+      // Set the new height
+      editorContainer.style.height = `${newHeight}px`;
       if (monacoEditor) {
         monacoEditor.style.height = `${newHeight}px`;
       }
+      
+      // Use requestAnimationFrame to ensure DOM has updated before adjusting scroll
+      requestAnimationFrame(() => {
+        if (options.isBottomExpansion && heightDiff > 0) {
+          // For bottom expansions, keep the content steady and don't scroll
+          // The new line will be visible due to the height increase
+          (this.editorInstance as any).setScrollTop(Math.max(0, currentScrollTop));
+          
+          // Ensure cursor is visible without scrolling beyond what's needed
+          if (currentPosition) {
+            try {
+              (this.editorInstance as any).revealPosition(currentPosition, 0); // 0 = Immediate, no animation
+            } catch (e) {
+              // Fallback if revealPosition fails
+            }
+          }
+          
+          // Restore smooth transitions after a brief moment
+          setTimeout(() => {
+            editorContainer.classList.add('smooth-transition');
+            editorContainer.classList.remove('immediate-transition');
+            if (monacoEditor) {
+              monacoEditor.classList.add('smooth-transition');
+              monacoEditor.classList.remove('immediate-transition');
+            }
+          }, 100);
+        } else if (options.preservePosition) {
+          // Maintain exact scroll position for other changes
+          (this.editorInstance as any).setScrollTop(currentScrollTop);
+        } else {
+          // Default behavior: reset scroll for small editors, maintain for larger ones
+          if (currentScrollTop < 10 && newHeight <= this.MIN_LINES * this.LINE_HEIGHT * 1.5) {
+            (this.editorInstance as any).setScrollTop(0);
+          } else {
+            (this.editorInstance as any).setScrollTop(currentScrollTop);
+          }
+        }
+      });
     }
 
     // Also update state for consistency (though we're now directly setting DOM height)
@@ -190,9 +295,10 @@ export class QueryEditor extends PureComponent<Props, State> {
     const { onChange, query } = this.props;
     onChange({ ...query, queryText: value });
     
-    // Trigger height update when content changes
+    // For smoother expansion, update height immediately
+    // Use a very short delay to let Monaco process the content change first
     setTimeout(() => {
-      this.updateEditorHeight();
+      this.updateEditorHeight({ preservePosition: true });
     }, 10);
   };
 
@@ -355,10 +461,32 @@ export class QueryEditor extends PureComponent<Props, State> {
                     // Add content change listener
                     const model = (editor as any).getModel();
                     if (model) {
-                      model.onDidChangeContent(() => {
-                        setTimeout(() => {
-                          this.updateEditorHeight();
-                        }, 10);
+                      model.onDidChangeContent((e: any) => {
+                        // Get current state
+                        const currentPosition = (editor as any).getPosition();
+                        const lineCount = model.getLineCount();
+                        
+                        // Check if this change involved adding content at or near the bottom
+                        let isBottomExpansion = false;
+                        if (currentPosition && e.changes && e.changes.length > 0) {
+                          // Check if the cursor is at the last line and we're adding content
+                          const isAtLastLine = currentPosition.lineNumber >= lineCount;
+                          const hasNewlineInChanges = e.changes.some((change: any) => 
+                            change.text && change.text.includes('\n')
+                          );
+                          
+                          isBottomExpansion = isAtLastLine && hasNewlineInChanges;
+                        }
+                        
+                        if (isBottomExpansion) {
+                          // For bottom expansions, handle immediately with special options
+                          this.updateEditorHeight({ isBottomExpansion: true });
+                        } else {
+                          // Normal content changes
+                          setTimeout(() => {
+                            this.updateEditorHeight({ preservePosition: true });
+                          }, 10);
+                        }
                       });
                     }
                     

@@ -23,7 +23,8 @@ export const splLanguage = {
     'untable', 'where', 'x11', 'xmlkv', 'xpath', 'xyseries'
   ],
 
-  // Clauses (orange)
+  // Clauses (orange) - haven't figured out how to make these case-insensitive yet. This will do for now.
+  // Also not sure how many of these are actually clauses, just guessed. If I see any issues I'll commit an update that can be rolled into the next release.
   splClauses: [
     'as', 'AS', 'by', 'BY', 'over', 'OVER', 'in', 'IN', 'where', 'WHERE', 
     'output', 'OUTPUT', 'outputnew', 'OUTPUTNEW', 'on', 'ON', 'using', 'USING', 

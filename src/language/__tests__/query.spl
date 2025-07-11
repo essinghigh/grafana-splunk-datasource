@@ -1,0 +1,28 @@
+index="web_logs_*" (sourcetype=access_combined OR sourcetype=iis) status>=400 status!=404 http_method IN ("POST", "PUT")
+| rex field=_raw "user=(?<username>\w+)"
+| rex field=uri "(?i)\/api\/(?<api_version>v[1-2])\/(?<endpoint>[^\?]+)"
+| eval transaction_id = coalesce(transaction_id, session_id)
+| eval request_size_kb = bytes / 1024
+| eval user_agent = lower(user_agent)
+| eval is_mobile = if(match(user_agent, "(android|iphone)"), "true", "false")
+| eval response_time_ms = response_time * 1000
+| eval error_type = case(status == 400, "Bad Request", status == 401, "Unauthorized", status == 403, "Forbidden", status >= 500, "Server Error")
+| makemv delim="," set=true user_roles
+| search user IN [ search source="audit_logs" event="suspicious_activity" | stats count by user | where count > 5 | fields user ]
+| lookup user_details.csv username OUTPUT user_department, user_location
+| eventstats avg(response_time_ms) as avg_response_time by http_method
+| eventstats p95(bytes) as p95_bytes
+| stats count, dc(user_ip) as distinct_ips, avg(response_time_ms) as avg_response, sum(request_size_kb) as total_kb by api_version, endpoint, error_type
+| sort -count
+| where total_kb > 1024 AND distinct_ips > 10
+| join type=left endpoint [
+    search index=business_data sourcetype=service_impact
+    | fields endpoint, business_service, criticality
+]
+| foreach *_kb [eval <<FIELD>> = round(<<FIELD>>, 2)]
+| timechart span=1h sum(count) as error_count by error_type
+| eval alert_level = if(error_count > 100 AND error_type="Server Error", "CRITICAL", "WARN")
+| eval search_run_time = strftime(now(), "%Y-%m-%d %H:%M:%S")
+| table search_run_time, _time, error_type, error_count, alert_level
+| rename error_count as "Number of Errors", alert_level as "Alert Priority"
+| map search="search index=ticket_system summary=\"$Number of Errors$ on $error_type$\"" maxsearches=5
